@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return response()->json([
-        "message" => "PONG is Ready!"
+        "message" => "PONG eDTS is Ready!"
     ]);
 });
 
