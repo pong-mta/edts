@@ -1,18 +1,10 @@
 <?php
 
-use App\Http\Controllers\Api\AdminStoreOwnerApplicationController;
+
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\FCMTestController;
-use App\Http\Controllers\Api\GroceryCartController;
-use App\Http\Controllers\Api\GroceryCheckoutController;
-use App\Http\Controllers\Api\GroceryOrderController;
-use App\Http\Controllers\Api\GroceryStoreCategoryController;
-use App\Http\Controllers\Api\GroceryStoreController;
-use App\Http\Controllers\Api\GroceryStoreOrderController;
-use App\Http\Controllers\Api\GroceryStoreOwnerApplicationController;
-use App\Http\Controllers\Api\GroceryStoreProductController;
-use App\Http\Controllers\Api\UserLocationController;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
