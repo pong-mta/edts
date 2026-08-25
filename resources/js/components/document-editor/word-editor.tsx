@@ -137,7 +137,7 @@ export default function WordEditor({
         editorProps: {
             attributes: {
                 class:
-                    'word-document prose prose-slate max-w-none min-h-[960px] outline-none text-[11pt]',
+                    'word-document max-w-none min-h-[960px] outline-none',
             },
         },
 

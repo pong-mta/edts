@@ -159,60 +159,141 @@
 
 
 /* ============================================================
-   eDTS Word Document
+   eDTS WORD DOCUMENT
    ============================================================ */
 
 .word-document {
     font-family: Arial, sans-serif;
     font-size: 11pt;
+    font-weight: 400;
     line-height: 1.15;
+    color: #000;
 }
 
 .word-document p {
+    margin: 0 0 8pt 0;
+    padding: 0;
     font-size: 11pt;
+    font-weight: 400;
     line-height: 1.15;
-    margin-top: 0;
-    margin-bottom: 8pt;
+}
+
+.word-document h1,
+.word-document h2,
+.word-document h3,
+.word-document h4,
+.word-document h5,
+.word-document h6 {
+    color: #000;
+    font-family: Arial, sans-serif;
+    font-weight: 700;
+    line-height: 1.15;
+    padding: 0;
 }
 
 .word-document h1 {
     font-size: 24pt;
-    line-height: 1.15;
-    font-weight: 700;
     margin: 0;
 }
 
 .word-document h2 {
     font-size: 20pt;
-    line-height: 1.15;
-    font-weight: 700;
     margin: 0;
 }
 
 .word-document h3 {
     font-size: 16pt;
-    line-height: 1.15;
-    font-weight: 700;
     margin: 0;
 }
 
 .word-document h4 {
     font-size: 14pt;
-    line-height: 1.15;
-    font-weight: 700;
     margin: 0;
 }
 
 .word-document h5 {
     font-size: 12pt;
-    line-height: 1.15;
-    font-weight: 700;
     margin: 0;
 }
 
 .word-document h6 {
     font-size: 11pt;
-    line-height: 1.15;
-    font-weight: 700;
     margin: 0;
+}
+
+/* Text formatting */
+
+.word-document strong {
+    font-weight: 700;
+}
+
+.word-document em {
+    font-style: italic;
+}
+
+.word-document u {
+    text-decoration: underline;
+}
+
+.word-document s {
+    text-decoration: line-through;
+}
+
+/* Lists */
+
+.word-document ul {
+    margin: 0 0 8pt 24pt;
+    padding: 0;
+    list-style-type: disc;
+}
+
+.word-document ol {
+    margin: 0 0 8pt 24pt;
+    padding: 0;
+    list-style-type: decimal;
+}
+
+.word-document li {
+    font-size: 11pt;
+    font-weight: 400;
+    line-height: 1.15;
+}
+
+/* Links */
+
+.word-document a {
+    color: #2563eb;
+    text-decoration: underline;
+}
+
+/* Text alignment */
+
+.word-document p[style*="text-align: center"],
+.word-document h1[style*="text-align: center"],
+.word-document h2[style*="text-align: center"],
+.word-document h3[style*="text-align: center"],
+.word-document h4[style*="text-align: center"],
+.word-document h5[style*="text-align: center"],
+.word-document h6[style*="text-align: center"] {
+    text-align: center;
+}
+
+.word-document p[style*="text-align: right"],
+.word-document h1[style*="text-align: right"],
+.word-document h2[style*="text-align: right"],
+.word-document h3[style*="text-align: right"],
+.word-document h4[style*="text-align: right"],
+.word-document h5[style*="text-align: right"],
+.word-document h6[style*="text-align: right"] {
+    text-align: right;
+}
+
+.word-document p[style*="text-align: justify"],
+.word-document h1[style*="text-align: justify"],
+.word-document h2[style*="text-align: justify"],
+.word-document h3[style*="text-align: justify"],
+.word-document h4[style*="text-align: justify"],
+.word-document h5[style*="text-align: justify"],
+.word-document h6[style*="text-align: justify"] {
+    text-align: justify;
 }
