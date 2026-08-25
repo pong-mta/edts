@@ -9,6 +9,7 @@ import {
 
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
+import WordEditor from '@/components/document-editor/word-editor';
 
 interface Department {
     id: number;
@@ -211,83 +212,12 @@ export default function Editor({
                         {/* ================================================== */}
 
                         {document.document_type === 'word' && (
-                            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-
-                                {/* TOOLBAR */}
-
-                                <div className="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-slate-50 p-2">
-
-                                    <button
-                                        type="button"
-                                        className="rounded px-3 py-1.5 text-xs font-bold hover:bg-slate-200"
-                                    >
-                                        B
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="rounded px-3 py-1.5 text-xs italic hover:bg-slate-200"
-                                    >
-                                        I
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="rounded px-3 py-1.5 text-xs underline hover:bg-slate-200"
-                                    >
-                                        U
-                                    </button>
-
-                                    <div className="mx-2 h-5 w-px bg-slate-300" />
-
-                                    <button
-                                        type="button"
-                                        className="rounded px-3 py-1.5 text-xs hover:bg-slate-200"
-                                    >
-                                        Align
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="rounded px-3 py-1.5 text-xs hover:bg-slate-200"
-                                    >
-                                        Table
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        className="rounded px-3 py-1.5 text-xs hover:bg-slate-200"
-                                    >
-                                        Image
-                                    </button>
-
-                                </div>
-
-                                {/* PAGE */}
-
-                                <div className="bg-slate-200 p-8">
-
-                                    <div
-                                        className="mx-auto min-h-[900px] max-w-[794px] bg-white p-16 shadow-lg outline-none"
-                                        contentEditable
-                                        suppressContentEditableWarning
-                                        onInput={(event) =>
-                                            setData(
-                                                'content',
-                                                event.currentTarget
-                                                    .innerHTML,
-                                            )
-                                        }
-                                        dangerouslySetInnerHTML={{
-                                            __html:
-                                                data.content ||
-                                                '<p>Start writing your document...</p>',
-                                        }}
-                                    />
-
-                                </div>
-
-                            </div>
+                            <WordEditor
+                                content={data.content}
+                                onChange={(content) =>
+                                    setData('content', content)
+                                }
+                            />
                         )}
 
                         {/* ================================================== */}
