@@ -116,43 +116,43 @@ export default function WordEditor({
     useState(false);
 
     const setCellBackgroundColor = (
-        value: string | null,
-    ) => {
-        if (!editor) {
-            return;
-        }
-
-        const { state } = editor;
-        const { $from } = state.selection;
-
-        for (
-            let depth = $from.depth;
-            depth > 0;
-            depth--
-        ) {
-            const node = $from.node(depth);
-
-            if (
-                node.type.name === 'tableCell' ||
-                node.type.name === 'tableHeader'
-            ) {
-                const pos = $from.before(depth);
-
-                const tr = state.tr.setNodeMarkup(
-                    pos,
-                    undefined,
-                    {
-                        ...node.attrs,
-                        backgroundColor: value,
-                    },
-                );
-
-                editor.view.dispatch(tr);
-
+            value: string | null,
+        ) => {
+            if (!editor) {
                 return;
             }
-        }
-    };
+
+            const { state } = editor;
+            const { $from } = state.selection;
+
+            for (
+                let depth = $from.depth;
+                depth > 0;
+                depth--
+            ) {
+                const node = $from.node(depth);
+
+                if (
+                    node.type.name === 'tableCell' ||
+                    node.type.name === 'tableHeader'
+                ) {
+                    const pos = $from.before(depth);
+
+                    const tr = state.tr.setNodeMarkup(
+                        pos,
+                        undefined,
+                        {
+                            ...node.attrs,
+                            backgroundColor: value,
+                        },
+                    );
+
+                    editor.view.dispatch(tr);
+
+                    return;
+                }
+            }
+        };
 
  
     
