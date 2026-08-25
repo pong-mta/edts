@@ -96,6 +96,15 @@ export default function WordEditor({
     const [fontFamily, setFontFamily] =
     useState('Arial');
 
+    const [showTableGrid, setShowTableGrid] =
+    useState(false);
+
+    const [tableGridSize, setTableGridSize] =
+    useState({
+        rows: 0,
+        cols: 0,
+    });
+
     
 
     const editor = useEditor({
@@ -728,24 +737,166 @@ export default function WordEditor({
 
                     {/* Insert table */}
 
-                    <ToolbarButton
-                        title="Insert table"
-                        onClick={() => {
-                            editor
-                                .chain()
-                                .focus()
-                                .insertTable({
-                                    rows: 3,
-                                    cols: 3,
-                                    withHeaderRow: true,
-                                })
-                                .run();
-                        }}
-                    >
-                        <span className="text-xs font-bold">
-                            ▦
-                        </span>
-                    </ToolbarButton>
+                    <div className="relative">
+                        <ToolbarButton
+                            title="Insert table"
+                            onClick={() =>
+                                setShowTableGrid(
+                                    !showTableGrid,
+                                )
+                            }
+                        >
+                            <span className="text-xs font-bold">
+                                ▦
+                            </span>
+                        </ToolbarButton>
+
+                        {showTableGrid && (
+                            <div className="absolute left-0 top-10 z-50 w-[220px] rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
+                                <div className="mb-2 text-xs font-semibold text-slate-700">
+                                    Insert Table
+                                </div>
+
+                                <div className="grid grid-cols-10 gap-1">
+                                    {Array.from(
+                                        { length: 100 },
+                                        (_, index) => {
+                                            const row =
+                                                Math.floor(index / 10) + 1;
+
+                                            const col =
+                                                (index % 10) + 1;
+
+                                            return (
+                                                <button
+                                                    key={index}
+                                                    onMouseEnter={() => {
+                                                        setTableGridSize({
+                                                            rows: row,
+                                                            cols: col,
+                                                        });
+                                                    }}
+                                                    type="button"
+                                                    title={`${row} × ${col}`}
+                                                    onClick={() => {
+                                                        editor
+                                                            .chain()
+                                                            .focus()
+                                                            .insertTable({
+                                                                rows: row,
+                                                                cols: col,
+                                                                withHeaderRow:
+                                                                    true,
+                                                            })
+                                                            .run();
+
+                                                        setShowTableGrid(
+                                                            false,
+                                                        );
+                                                    }}
+                                                    className={[
+                                                        'h-4 w-4 rounded-sm border transition',
+                                                        row <= tableGridSize.rows &&
+                                                        col <= tableGridSize.cols
+                                                            ? 'border-blue-500 bg-blue-200'
+                                                            : 'border-slate-300 bg-white',
+                                                    ].join(' ')}
+                                                />
+                                            );
+                                        },
+                                    )}
+                                </div>
+
+                                <div className="mt-2 text-center text-xs font-medium text-slate-600">
+                                    {tableGridSize.rows > 0 &&
+                                    tableGridSize.cols > 0
+                                        ? `${tableGridSize.rows} × ${tableGridSize.cols}`
+                                        : 'Select table size'}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                      {editor.isActive('table') && (
+                        <>
+                            <ToolbarDivider />
+
+                            <ToolbarButton
+                                title="Add row below"
+                                onClick={() =>
+                                    editor
+                                        .chain()
+                                        .focus()
+                                        .addRowAfter()
+                                        .run()
+                                }
+                            >
+                                <span className="text-xs font-bold">
+                                    +R
+                                </span>
+                            </ToolbarButton>
+
+                            <ToolbarButton
+                                title="Delete row"
+                                onClick={() =>
+                                    editor
+                                        .chain()
+                                        .focus()
+                                        .deleteRow()
+                                        .run()
+                                }
+                            >
+                                <span className="text-xs font-bold">
+                                    −R
+                                </span>
+                            </ToolbarButton>
+
+                            <ToolbarButton
+                                title="Add column"
+                                onClick={() =>
+                                    editor
+                                        .chain()
+                                        .focus()
+                                        .addColumnAfter()
+                                        .run()
+                                }
+                            >
+                                <span className="text-xs font-bold">
+                                    +C
+                                </span>
+                            </ToolbarButton>
+
+                            <ToolbarButton
+                                title="Delete column"
+                                onClick={() =>
+                                    editor
+                                        .chain()
+                                        .focus()
+                                        .deleteColumn()
+                                        .run()
+                                }
+                            >
+                                <span className="text-xs font-bold">
+                                    −C
+                                </span>
+                            </ToolbarButton>
+
+                            <ToolbarButton
+                                title="Delete table"
+                                onClick={() =>
+                                    editor
+                                        .chain()
+                                        .focus()
+                                        .deleteTable()
+                                        .run()
+                                }
+                            >
+                                <span className="text-xs font-bold">
+                                    ×T
+                                </span>
+                            </ToolbarButton>
+                        </>
+                    )}
 
                     <ToolbarDivider />
 
