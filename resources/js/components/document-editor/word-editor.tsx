@@ -15,6 +15,7 @@ import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
 import { TableRowHeight } from '@/components/document-editor/extensions/table-row-height';
 import { TableCellAlignment } from '@/components/document-editor/extensions/table-cell-alignment';
+import { TableHeaderAlignment } from '@/components/document-editor/extensions/table-header-alignment';
 
 
 import {
@@ -123,7 +124,7 @@ export default function WordEditor({
             }),
 
             TableRowHeight,
-            TableHeader,
+            TableHeaderAlignment,
             TableCellAlignment,
 
             TextStyle,
