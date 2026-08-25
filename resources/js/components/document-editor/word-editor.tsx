@@ -210,6 +210,31 @@ export default function WordEditor({
         }
     };
 
+    const syncRowHeight = () => {
+        if (!editor) {
+            return;
+        }
+
+        if (!editor.isActive('tableRow')) {
+            setRowHeight('24');
+            return;
+        }
+
+        const currentHeight =
+            editor.getAttributes('tableRow').height;
+
+        if (
+            currentHeight !== null &&
+            currentHeight !== undefined
+        ) {
+            setRowHeight(
+                String(currentHeight),
+            );
+        } else {
+            setRowHeight('24');
+        }
+    };
+
 
     useEffect(() => {
         if (!editor) {
@@ -219,8 +244,8 @@ export default function WordEditor({
         const handleSelectionUpdate = () => {
             syncFontSize();
             syncFontFamily();
+            syncRowHeight();
         };
-
         editor.on(
             'selectionUpdate',
             handleSelectionUpdate,
@@ -228,6 +253,7 @@ export default function WordEditor({
 
         syncFontSize();
         syncFontFamily();
+        syncRowHeight();
 
         return () => {
             editor.off(
