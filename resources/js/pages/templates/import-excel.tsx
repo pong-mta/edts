@@ -18,7 +18,7 @@ import {
     Upload,
 } from 'lucide-react';
 
-import ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx-js-style';
 
 import {
     ExcelCell,
@@ -29,6 +29,370 @@ import {
 
 const IMPORT_STORAGE_KEY =
     'edts_imported_excel_workbook';
+
+/*
+|--------------------------------------------------------------------------
+| Helpers
+|--------------------------------------------------------------------------
+*/
+
+function colorToHex(
+    color: any,
+): string | undefined {
+    if (!color) {
+        return undefined;
+    }
+
+    let rgb: string | undefined;
+
+    if (
+        typeof color.rgb === 'string'
+    ) {
+        rgb = color.rgb;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Theme / indexed colors
+    |--------------------------------------------------------------------------
+    */
+
+    if (!rgb && color.theme !== undefined) {
+        /*
+        We cannot reliably reproduce every
+        Excel theme color without the workbook
+        theme table.
+        */
+        return undefined;
+    }
+
+    if (!rgb && color.indexed !== undefined) {
+        const indexedColors: Record<
+            number,
+            string
+        > = {
+            0: '#000000',
+            1: '#FFFFFF',
+            2: '#FF0000',
+            3: '#00FF00',
+            4: '#0000FF',
+            5: '#FFFF00',
+            6: '#FF00FF',
+            7: '#00FFFF',
+            8: '#000000',
+            9: '#FFFFFF',
+            10: '#FF0000',
+            11: '#00FF00',
+            12: '#0000FF',
+            13: '#FFFF00',
+            14: '#FF00FF',
+            15: '#00FFFF',
+        };
+
+        return indexedColors[color.indexed];
+    }
+
+    if (!rgb) {
+        return undefined;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Excel ARGB → RGB
+    |--------------------------------------------------------------------------
+    */
+
+    if (rgb.length === 8) {
+        rgb = rgb.substring(2);
+    }
+
+    if (rgb.length !== 6) {
+        return undefined;
+    }
+
+    return `#${rgb}`;
+}
+
+function borderToString(
+    border: any,
+): string | undefined {
+    if (!border) {
+        return undefined;
+    }
+
+    if (!border.style) {
+        return undefined;
+    }
+
+    const color =
+        colorToHex(border.color);
+
+    if (color) {
+        return `${border.style}:${color}`;
+    }
+
+    return border.style;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Convert XLSX cell → EDTS cell
+|--------------------------------------------------------------------------
+*/
+
+function convertCell(
+    sourceCell: any,
+): ExcelCell {
+    let value = '';
+
+    /*
+    |--------------------------------------------------------------------------
+    | Value
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        sourceCell?.v !== undefined &&
+        sourceCell?.v !== null
+    ) {
+        value = String(sourceCell.v);
+    }
+
+    const cell: ExcelCell = {
+        value,
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | Formula
+    |--------------------------------------------------------------------------
+    */
+
+    if (sourceCell?.f) {
+        cell.formula =
+            String(sourceCell.f);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Number format
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+        typeof sourceCell?.z ===
+        'string'
+    ) {
+        cell.numberFormat =
+            sourceCell.z;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Style
+    |--------------------------------------------------------------------------
+    */
+
+    const style =
+        sourceCell?.s;
+
+    if (!style) {
+        return cell;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Font
+    |--------------------------------------------------------------------------
+    */
+
+    if (style.font) {
+        const font =
+            style.font;
+
+        if (font.bold) {
+            cell.bold = true;
+        }
+
+        if (font.italic) {
+            cell.italic = true;
+        }
+
+        if (
+            font.underline
+        ) {
+            cell.underline = true;
+        }
+
+        if (
+            typeof font.sz ===
+            'number'
+        ) {
+            cell.fontSize =
+                font.sz;
+        }
+
+        if (
+            typeof font.name ===
+            'string'
+        ) {
+            cell.fontFamily =
+                font.name;
+        }
+
+        const fontColor =
+            colorToHex(
+                font.color,
+            );
+
+        if (fontColor) {
+            cell.color =
+                fontColor;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Fill
+    |--------------------------------------------------------------------------
+    */
+
+    if (style.fill) {
+        const fill =
+            style.fill;
+
+        let backgroundColor =
+            colorToHex(
+                fill.fgColor,
+            );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Some Excel files use bgColor
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !backgroundColor
+        ) {
+            backgroundColor =
+                colorToHex(
+                    fill.bgColor,
+                );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Only use an actual fill
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            backgroundColor &&
+            (
+                fill.patternType ||
+                fill.pattern
+            )
+        ) {
+            cell.backgroundColor =
+                backgroundColor;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Alignment
+    |--------------------------------------------------------------------------
+    */
+
+    if (style.alignment) {
+        const alignment =
+            style.alignment;
+
+        if (
+            alignment.horizontal ===
+                'left' ||
+            alignment.horizontal ===
+                'center' ||
+            alignment.horizontal ===
+                'right'
+        ) {
+            cell.horizontalAlign =
+                alignment.horizontal;
+        }
+
+        if (
+            alignment.vertical ===
+                'top' ||
+            alignment.vertical ===
+                'center' ||
+            alignment.vertical ===
+                'bottom'
+        ) {
+            cell.verticalAlign =
+                alignment.vertical ===
+                'center'
+                    ? 'middle'
+                    : alignment.vertical;
+        }
+
+        if (
+            alignment.wrapText
+        ) {
+            cell.wrapText =
+                true;
+        }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Borders
+    |--------------------------------------------------------------------------
+    */
+
+    if (style.border) {
+        const border: ExcelCell['border'] =
+            {};
+
+        border.top =
+            borderToString(
+                style.border.top,
+            );
+
+        border.right =
+            borderToString(
+                style.border.right,
+            );
+
+        border.bottom =
+            borderToString(
+                style.border.bottom,
+            );
+
+        border.left =
+            borderToString(
+                style.border.left,
+            );
+
+        if (
+            border.top ||
+            border.right ||
+            border.bottom ||
+            border.left
+        ) {
+            cell.border =
+                border;
+        }
+    }
+
+    return cell;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Main component
+|--------------------------------------------------------------------------
+*/
 
 export default function ImportExcel() {
     const [file, setFile] =
@@ -44,92 +408,6 @@ export default function ImportExcel() {
 
     const [error, setError] =
         useState<string | null>(null);
-
-    /*
-    |--------------------------------------------------------------------------
-    | ExcelJS Color → HEX
-    |--------------------------------------------------------------------------
-    */
-
-    const excelColorToHex = (
-        color: any,
-    ): string | undefined => {
-        if (!color) {
-            return undefined;
-        }
-
-        let value: string | undefined;
-
-        if (
-            typeof color.argb ===
-            'string'
-        ) {
-            value = color.argb;
-        } else if (
-            typeof color.rgb ===
-            'string'
-        ) {
-            value = color.rgb;
-        }
-
-        if (!value) {
-            return undefined;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | ExcelJS usually gives ARGB:
-        |
-        | FFFF0000
-        |
-        | Remove the alpha channel.
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            value.length === 8
-        ) {
-            value =
-                value.substring(2);
-        }
-
-        if (
-            value.length !== 6
-        ) {
-            return undefined;
-        }
-
-        return `#${value}`;
-    };
-
-    /*
-    |--------------------------------------------------------------------------
-    | Border conversion
-    |--------------------------------------------------------------------------
-    */
-
-    const convertBorder = (
-        side: any,
-    ): string | undefined => {
-        if (!side) {
-            return undefined;
-        }
-
-        if (!side.style) {
-            return undefined;
-        }
-
-        const color =
-            excelColorToHex(
-                side.color,
-            );
-
-        if (color) {
-            return `${side.style}:${color}`;
-        }
-
-        return side.style;
-    };
 
     /*
     |--------------------------------------------------------------------------
@@ -170,24 +448,43 @@ export default function ImportExcel() {
         try {
             /*
             |--------------------------------------------------------------------------
-            | Read file
+            | Read XLSX
             |--------------------------------------------------------------------------
             */
 
             const buffer =
                 await selected.arrayBuffer();
 
+            const sourceWorkbook =
+                XLSX.read(buffer, {
+                    type: 'array',
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Important
+                    |--------------------------------------------------------------------------
+                    */
+
+                    cellStyles: true,
+
+                    cellNF: true,
+
+                    cellFormula: true,
+
+                    cellHTML: true,
+
+                    cellText: true,
+                });
+
             /*
             |--------------------------------------------------------------------------
-            | ExcelJS workbook
+            | Debug
             |--------------------------------------------------------------------------
             */
 
-            const sourceWorkbook =
-                new ExcelJS.Workbook();
-
-            await sourceWorkbook.xlsx.load(
-                buffer,
+            console.log(
+                'SOURCE WORKBOOK:',
+                sourceWorkbook,
             );
 
             /*
@@ -197,23 +494,71 @@ export default function ImportExcel() {
             */
 
             const sheets: ExcelSheet[] =
-                sourceWorkbook.worksheets.map(
-                    (worksheet) => {
+                sourceWorkbook.SheetNames.map(
+                    (
+                        sheetName,
+                    ) => {
+                        const worksheet =
+                            sourceWorkbook
+                                .Sheets[
+                                sheetName
+                            ];
+
                         /*
                         |--------------------------------------------------------------------------
-                        | Dimensions
+                        | Range
                         |--------------------------------------------------------------------------
                         */
 
+                        const range =
+                            worksheet[
+                                '!ref'
+                            ];
+
+                        let startRow =
+                            0;
+
+                        let startColumn =
+                            0;
+
+                        let endRow =
+                            0;
+
+                        let endColumn =
+                            0;
+
+                        if (range) {
+                            const decoded =
+                                XLSX.utils.decode_range(
+                                    range,
+                                );
+
+                            startRow =
+                                decoded.s.r;
+
+                            startColumn =
+                                decoded.s.c;
+
+                            endRow =
+                                decoded.e.r;
+
+                            endColumn =
+                                decoded.e.c;
+                        }
+
                         const rowCount =
                             Math.max(
-                                worksheet.rowCount,
+                                endRow -
+                                    startRow +
+                                    1,
                                 1,
                             );
 
                         const columnCount =
                             Math.max(
-                                worksheet.columnCount,
+                                endColumn -
+                                    startColumn +
+                                    1,
                                 1,
                             );
 
@@ -243,424 +588,79 @@ export default function ImportExcel() {
 
                         /*
                         |--------------------------------------------------------------------------
-                        | Read every cell
+                        | Read cells
                         |--------------------------------------------------------------------------
                         */
 
-                        worksheet.eachRow(
-                            {
-                                includeEmpty: true,
-                            },
-                            (
-                                excelRow,
-                                rowNumber,
-                            ) => {
-                                excelRow.eachCell(
-                                    {
-                                        includeEmpty:
-                                            true,
-                                    },
-                                    (
-                                        excelCell,
-                                        columnNumber,
-                                    ) => {
-                                        const rowIndex =
-                                            rowNumber -
-                                            1;
+                        for (
+                            let row =
+                                startRow;
+                            row <=
+                            endRow;
+                            row++
+                        ) {
+                            for (
+                                let column =
+                                    startColumn;
+                                column <=
+                                endColumn;
+                                column++
+                            ) {
+                                const address =
+                                    XLSX.utils.encode_cell(
+                                        {
+                                            r: row,
+                                            c: column,
+                                        },
+                                    );
 
-                                        const columnIndex =
-                                            columnNumber -
-                                            1;
+                                const sourceCell =
+                                    worksheet[
+                                        address
+                                    ];
 
-                                        if (
-                                            rowIndex <
-                                            0 ||
-                                            columnIndex <
-                                            0
-                                        ) {
-                                            return;
-                                        }
+                                if (
+                                    !sourceCell
+                                ) {
+                                    continue;
+                                }
 
-                                        /*
-                                        |--------------------------------------------------------------------------
-                                        | Value
-                                        |--------------------------------------------------------------------------
-                                        */
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Debug A1
+                                |--------------------------------------------------------------------------
+                                */
 
-                                        let value =
-                                            '';
+                                if (
+                                    address ===
+                                    'A1'
+                                ) {
+                                    console.log(
+                                        'XLSX A1:',
+                                        sourceCell,
+                                    );
 
-                                        const rawValue =
-                                            excelCell.value;
+                                    console.log(
+                                        'XLSX A1 STYLE:',
+                                        sourceCell.s,
+                                    );
+                                }
 
-                                        if (
-                                            rawValue !==
-                                                null &&
-                                            rawValue !==
-                                                undefined
-                                        ) {
-                                            /*
-                                            |--------------------------------------------------------------------------
-                                            | Formula
-                                            |--------------------------------------------------------------------------
-                                            */
+                                const converted =
+                                    convertCell(
+                                        sourceCell,
+                                    );
 
-                                            if (
-                                                typeof rawValue ===
-                                                    'object' &&
-                                                'formula' in
-                                                    rawValue
-                                            ) {
-                                                value =
-                                                    String(
-                                                        (
-                                                            rawValue as any
-                                                        ).result ??
-                                                            '',
-                                                    );
-                                            }
-
-                                            /*
-                                            |--------------------------------------------------------------------------
-                                            | Rich text
-                                            |--------------------------------------------------------------------------
-                                            */
-
-                                            else if (
-                                                typeof rawValue ===
-                                                    'object' &&
-                                                'richText' in
-                                                    rawValue
-                                            ) {
-                                                value = (
-                                                    rawValue as any
-                                                ).richText
-                                                    .map(
-                                                        (
-                                                            item: any,
-                                                        ) =>
-                                                            item.text ??
-                                                            '',
-                                                    )
-                                                    .join(
-                                                        '',
-                                                    );
-                                            }
-
-                                            /*
-                                            |--------------------------------------------------------------------------
-                                            | Date
-                                            |--------------------------------------------------------------------------
-                                            */
-
-                                            else if (
-                                                rawValue instanceof
-                                                Date
-                                            ) {
-                                                value =
-                                                    rawValue.toLocaleDateString();
-                                            }
-
-                                            /*
-                                            |--------------------------------------------------------------------------
-                                            | Normal value
-                                            |--------------------------------------------------------------------------
-                                            */
-
-                                            else {
-                                                value =
-                                                    String(
-                                                        rawValue,
-                                                    );
-                                            }
-                                        }
-
-                                        const cell: ExcelCell =
-                                            {
-                                                value,
-                                            };
-
-                                        /*
-                                        |--------------------------------------------------------------------------
-                                        | Formula
-                                        |--------------------------------------------------------------------------
-                                        */
-
-                                        if (
-                                            typeof rawValue ===
-                                                'object' &&
-                                            rawValue !==
-                                                null &&
-                                            'formula' in
-                                                rawValue
-                                        ) {
-                                            cell.formula =
-                                                String(
-                                                    (
-                                                        rawValue as any
-                                                    ).formula,
-                                                );
-                                        }
-
-                                        /*
-                                        |--------------------------------------------------------------------------
-                                        | Font
-                                        |--------------------------------------------------------------------------
-                                        */
-
-                                        const font =
-                                            excelCell.font;
-
-                                        if (
-                                            font
-                                        ) {
-                                            if (
-                                                font.bold
-                                            ) {
-                                                cell.bold =
-                                                    true;
-                                            }
-
-                                            if (
-                                                font.italic
-                                            ) {
-                                                cell.italic =
-                                                    true;
-                                            }
-
-                                            if (
-                                                font.underline
-                                            ) {
-                                                cell.underline =
-                                                    true;
-                                            }
-
-                                            if (
-                                                typeof font.size ===
-                                                'number'
-                                            ) {
-                                                cell.fontSize =
-                                                    font.size;
-                                            }
-
-                                            if (
-                                                typeof font.name ===
-                                                'string'
-                                            ) {
-                                                cell.fontFamily =
-                                                    font.name;
-                                            }
-
-                                            const color =
-                                                excelColorToHex(
-                                                    font.color,
-                                                );
-
-                                            if (
-                                                color
-                                            ) {
-                                                cell.color =
-                                                    color;
-                                            }
-                                        }
-
-                                        /*
-                                        |--------------------------------------------------------------------------
-                                        | Fill
-                                        |--------------------------------------------------------------------------
-                                        */
-
-                                        const fill =
-                                            excelCell.fill as any;
-
-                                        if (
-                                            fill
-                                        ) {
-                                            /*
-                                            |--------------------------------------------------------------------------
-                                            | Pattern fill
-                                            |--------------------------------------------------------------------------
-                                            */
-
-                                            if (
-                                                fill.type ===
-                                                    'pattern' &&
-                                                fill.fgColor
-                                            ) {
-                                                const background =
-                                                    excelColorToHex(
-                                                        fill.fgColor,
-                                                    );
-
-                                                if (
-                                                    background
-                                                ) {
-                                                    cell.backgroundColor =
-                                                        background;
-                                                }
-                                            }
-
-                                            /*
-                                            |--------------------------------------------------------------------------
-                                            | Gradient fill
-                                            |--------------------------------------------------------------------------
-                                            */
-
-                                            if (
-                                                fill.type ===
-                                                    'gradient'
-                                            ) {
-                                                const firstStop =
-                                                    fill.stops?.[0];
-
-                                                if (
-                                                    firstStop?.color
-                                                ) {
-                                                    const background =
-                                                        excelColorToHex(
-                                                            firstStop.color,
-                                                        );
-
-                                                    if (
-                                                        background
-                                                    ) {
-                                                        cell.backgroundColor =
-                                                            background;
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        /*
-                                        |--------------------------------------------------------------------------
-                                        | Alignment
-                                        |--------------------------------------------------------------------------
-                                        */
-
-                                        const alignment =
-                                            excelCell.alignment;
-
-                                        if (
-                                            alignment
-                                        ) {
-                                            if (
-                                                alignment.horizontal ===
-                                                    'left' ||
-                                                alignment.horizontal ===
-                                                    'center' ||
-                                                alignment.horizontal ===
-                                                    'right'
-                                            ) {
-                                                cell.horizontalAlign =
-                                                    alignment.horizontal;
-                                            }
-
-                                            if (
-                                                alignment.vertical ===
-                                                    'top' ||
-                                                alignment.vertical ===
-                                                    'middle' ||
-                                                alignment.vertical ===
-                                                    'bottom'
-                                            ) {
-                                                cell.verticalAlign =
-                                                    alignment.vertical;
-                                            }
-
-                                            if (
-                                                alignment.wrapText
-                                            ) {
-                                                cell.wrapText =
-                                                    true;
-                                            }
-                                        }
-
-                                        /*
-                                        |--------------------------------------------------------------------------
-                                        | Number format
-                                        |--------------------------------------------------------------------------
-                                        */
-
-                                        if (
-                                            typeof excelCell.numFmt ===
-                                            'string'
-                                        ) {
-                                            cell.numberFormat =
-                                                excelCell.numFmt;
-                                        }
-
-                                        /*
-                                        |--------------------------------------------------------------------------
-                                        | Borders
-                                        |--------------------------------------------------------------------------
-                                        */
-
-                                        const border =
-                                            excelCell.border;
-
-                                        if (
-                                            border
-                                        ) {
-                                            const convertedBorder: ExcelCell['border'] =
-                                                {};
-
-                                            convertedBorder.top =
-                                                convertBorder(
-                                                    border.top,
-                                                );
-
-                                            convertedBorder.right =
-                                                convertBorder(
-                                                    border.right,
-                                                );
-
-                                            convertedBorder.bottom =
-                                                convertBorder(
-                                                    border.bottom,
-                                                );
-
-                                            convertedBorder.left =
-                                                convertBorder(
-                                                    border.left,
-                                                );
-
-                                            if (
-                                                convertedBorder.top ||
-                                                convertedBorder.right ||
-                                                convertedBorder.bottom ||
-                                                convertedBorder.left
-                                            ) {
-                                                cell.border =
-                                                    convertedBorder;
-                                            }
-                                        }
-
-                                        /*
-                                        |--------------------------------------------------------------------------
-                                        | Store
-                                        |--------------------------------------------------------------------------
-                                        */
-
-                                        if (
-                                            !cells[
-                                                rowIndex
-                                            ]
-                                        ) {
-                                            cells[
-                                                rowIndex
-                                            ] =
-                                                [];
-                                        }
-
-                                        cells[
-                                            rowIndex
-                                        ][
-                                            columnIndex
-                                        ] = cell;
-                                    },
-                                );
-                            },
-                        );
+                                cells[
+                                    row -
+                                        startRow
+                                ][
+                                    column -
+                                        startColumn
+                                ] =
+                                    converted;
+                            }
+                        }
 
                         /*
                         |--------------------------------------------------------------------------
@@ -674,40 +674,52 @@ export default function ImportExcel() {
                                     length:
                                         columnCount,
                                 },
+                                () => 100,
+                            );
+
+                        const columns =
+                            worksheet[
+                                '!cols'
+                            ];
+
+                        if (
+                            Array.isArray(
+                                columns,
+                            )
+                        ) {
+                            columns.forEach(
                                 (
-                                    _,
+                                    column,
                                     index,
                                 ) => {
-                                    const column =
-                                        worksheet.getColumn(
-                                            index +
-                                                1,
-                                        );
-
-                                    /*
-                                    |--------------------------------------------------------------------------
-                                    | ExcelJS width is approximately
-                                    | character units.
-                                    |--------------------------------------------------------------------------
-                                    */
-
                                     if (
-                                        typeof column.width ===
-                                        'number'
+                                        index >=
+                                        columnCount
                                     ) {
-                                        return Math.max(
-                                            40,
-                                            Math.min(
-                                                500,
-                                                column.width *
-                                                    7,
-                                            ),
-                                        );
+                                        return;
                                     }
 
-                                    return 100;
+                                    if (
+                                        typeof column.wpx ===
+                                        'number'
+                                    ) {
+                                        columnWidths[
+                                            index
+                                        ] =
+                                            column.wpx;
+                                    } else if (
+                                        typeof column.wch ===
+                                        'number'
+                                    ) {
+                                        columnWidths[
+                                            index
+                                        ] =
+                                            column.wch *
+                                            7;
+                                    }
                                 },
                             );
+                        }
 
                         /*
                         |--------------------------------------------------------------------------
@@ -721,35 +733,52 @@ export default function ImportExcel() {
                                     length:
                                         rowCount,
                                 },
+                                () => 28,
+                            );
+
+                        const rows =
+                            worksheet[
+                                '!rows'
+                            ];
+
+                        if (
+                            Array.isArray(
+                                rows,
+                            )
+                        ) {
+                            rows.forEach(
                                 (
-                                    _,
+                                    row,
                                     index,
                                 ) => {
-                                    const row =
-                                        worksheet.getRow(
-                                            index +
-                                                1,
-                                        );
-
-                                    /*
-                                    |--------------------------------------------------------------------------
-                                    | ExcelJS row.height is points.
-                                    |--------------------------------------------------------------------------
-                                    */
-
                                     if (
-                                        typeof row.height ===
-                                        'number'
+                                        index >=
+                                        rowCount
                                     ) {
-                                        return (
-                                            row.height *
-                                            1.333333
-                                        );
+                                        return;
                                     }
 
-                                    return 28;
+                                    if (
+                                        typeof row.hpx ===
+                                        'number'
+                                    ) {
+                                        rowHeights[
+                                            index
+                                        ] =
+                                            row.hpx;
+                                    } else if (
+                                        typeof row.hpt ===
+                                        'number'
+                                    ) {
+                                        rowHeights[
+                                            index
+                                        ] =
+                                            row.hpt *
+                                            1.333333;
+                                    }
                                 },
                             );
+                        }
 
                         /*
                         |--------------------------------------------------------------------------
@@ -760,68 +789,45 @@ export default function ImportExcel() {
                         const mergedCells: ExcelMerge[] =
                             [];
 
-                        const model =
-                            (worksheet as any)
-                                .model;
+                        const merges =
+                            worksheet[
+                                '!merges'
+                            ];
 
                         if (
-                            model &&
                             Array.isArray(
-                                model.merges,
+                                merges,
                             )
                         ) {
-                            model.merges.forEach(
+                            merges.forEach(
                                 (
-                                    merge: string,
+                                    merge,
                                 ) => {
-                                    /*
-                                    |--------------------------------------------------------------------------
-                                    | ExcelJS returns ranges:
-                                    |
-                                    | A1:N1
-                                    | A20:D20
-                                    |--------------------------------------------------------------------------
-                                    */
-
-                                    const parts =
-                                        merge.split(
-                                            ':',
-                                        );
-
-                                    if (
-                                        parts.length !==
-                                        2
-                                    ) {
-                                        return;
-                                    }
-
-                                    const start =
-                                        worksheet.getCell(
-                                            parts[0],
-                                        );
-
-                                    const end =
-                                        worksheet.getCell(
-                                            parts[1],
-                                        );
-
                                     mergedCells.push(
                                         {
                                             startRow:
-                                                start.row -
-                                                1,
+                                                merge
+                                                    .s
+                                                    .r -
+                                                startRow,
 
                                             startColumn:
-                                                start.col -
-                                                1,
+                                                merge
+                                                    .s
+                                                    .c -
+                                                startColumn,
 
                                             endRow:
-                                                end.row -
-                                                1,
+                                                merge
+                                                    .e
+                                                    .r -
+                                                startRow,
 
                                             endColumn:
-                                                end.col -
-                                                1,
+                                                merge
+                                                    .e
+                                                    .c -
+                                                startColumn,
                                         },
                                     );
                                 },
@@ -837,79 +843,20 @@ export default function ImportExcel() {
                         const images: any[] =
                             [];
 
-                        try {
-                            const worksheetImages =
-                                worksheet.getImages();
-
-                            worksheetImages.forEach(
-                                (
-                                    image,
-                                ) => {
-                                    const range =
-                                        image.range;
-
-                                    if (
-                                        !range
-                                    ) {
-                                        return;
-                                    }
-
-                                    /*
-                                    |--------------------------------------------------------------------------
-                                    | We store the image
-                                    | reference for now.
-                                    |
-                                    | Actual image extraction
-                                    | will be handled separately.
-                                    |--------------------------------------------------------------------------
-                                    */
-
-                                    images.push(
-                                        {
-                                            id: image.imageId,
-                                            src: '',
-                                            row:
-                                                range.tl
-                                                    .row,
-                                            column:
-                                                range.tl
-                                                    .col,
-                                            width:
-                                                0,
-                                            height:
-                                                0,
-                                            offsetX:
-                                                range
-                                                    .tl
-                                                    .nativeColOff ??
-                                                0,
-                                            offsetY:
-                                                range
-                                                    .tl
-                                                    .nativeRowOff ??
-                                                0,
-                                        },
-                                    );
-                                },
-                            );
-                        } catch (
-                            imageError
-                        ) {
-                            console.warn(
-                                'Unable to read Excel images:',
-                                imageError,
-                            );
-                        }
-
                         /*
                         |--------------------------------------------------------------------------
-                        | Return EDTS sheet
+                        | xlsx-js-style does not provide
+                        | a simple browser-side image API
+                        | compatible with our EDTS model.
+                        |
+                        | We keep this ready for the
+                        | next image extraction step.
                         |--------------------------------------------------------------------------
                         */
 
                         return {
                             name:
-                                worksheet.name,
+                                sheetName,
 
                             cells,
 
@@ -926,7 +873,7 @@ export default function ImportExcel() {
 
             /*
             |--------------------------------------------------------------------------
-            | Create EDTS workbook
+            | EDTS Workbook
             |--------------------------------------------------------------------------
             */
 
@@ -943,17 +890,7 @@ export default function ImportExcel() {
 
             /*
             |--------------------------------------------------------------------------
-            | Save to state
-            |--------------------------------------------------------------------------
-            */
-
-            setWorkbook(
-                edtsWorkbook,
-            );
-
-            /*
-            |--------------------------------------------------------------------------
-            | Debug first cell
+            | Debug EDTS workbook
             |--------------------------------------------------------------------------
             */
 
@@ -968,6 +905,16 @@ export default function ImportExcel() {
                     .sheets[0]
                     ?.cells[0]?.[0],
             );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Save
+            |--------------------------------------------------------------------------
+            */
+
+            setWorkbook(
+                edtsWorkbook,
+            );
         } catch (err) {
             console.error(
                 'Excel import error:',
@@ -975,7 +922,9 @@ export default function ImportExcel() {
             );
 
             setError(
-                'Unable to read this Excel file.',
+                err instanceof Error
+                    ? err.message
+                    : 'Unable to read this Excel file.',
             );
         } finally {
             setLoading(false);
@@ -1285,7 +1234,6 @@ export default function ImportExcel() {
                     </div>
 
                 </div>
-
             </div>
         </AppLayout>
     );
