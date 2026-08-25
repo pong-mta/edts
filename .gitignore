@@ -15,6 +15,7 @@
 /.zed
 
 /bootstrap/ssr
+
 /node_modules
 
 /public/hot
@@ -26,6 +27,7 @@
 /vendor
 
 auth.json
+
 Homestead.json
 Homestead.yaml
 
