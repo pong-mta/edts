@@ -104,6 +104,8 @@ const DEFAULT_ROW_HEIGHT = 28;
 const MIN_ROW_HEIGHT = 18;
 const MAX_ROW_HEIGHT = 200;
 
+const ROW_HEADER_WIDTH = 48;
+
 const createEmptyRows = (): Cell[][] =>
     Array.from(
         { length: DEFAULT_ROWS },
@@ -174,14 +176,14 @@ const normalizePosition = (
         0,
         Math.min(
             position.row,
-            rowsCount - 1,
+            Math.max(rowsCount - 1, 0),
         ),
     ),
     col: Math.max(
         0,
         Math.min(
             position.col,
-            columnsCount - 1,
+            Math.max(columnsCount - 1, 0),
         ),
     ),
 });
@@ -329,7 +331,24 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | LOAD IMPORTED WORKBOOK
+    | WORKBOOK WIDTH
+    |--------------------------------------------------------------------------
+    */
+
+    const tableWidth = useMemo(() => {
+        return (
+            ROW_HEADER_WIDTH +
+            columnWidths.reduce(
+                (total, width) =>
+                    total + width,
+                0,
+            )
+        );
+    }, [columnWidths]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD WORKBOOK
     |--------------------------------------------------------------------------
     */
 
@@ -337,15 +356,19 @@ export default function ExcelEditor({
         if (!content) {
             setWorkbook(null);
             setActiveSheetIndex(0);
+
             setRows(
                 createEmptyRows(),
             );
+
             setColumnWidths(
                 createDefaultColumnWidths(),
             );
+
             setRowHeights(
                 createDefaultRowHeights(),
             );
+
             setMergedCells([]);
 
             return;
@@ -392,96 +415,8 @@ export default function ExcelEditor({
                 return;
             }
 
-            if (
-                parsed &&
-                Array.isArray(
-                    (parsed as any).rows,
-                )
-            ) {
-                const oldRows =
-                    (parsed as any)
-                        .rows as Cell[][];
-
-                const normalized =
-                    createEmptyRows();
-
-                oldRows.forEach(
-                    (
-                        row,
-                        rowIndex,
-                    ) => {
-                        if (
-                            rowIndex >=
-                            DEFAULT_ROWS
-                        ) {
-                            return;
-                        }
-
-                        if (
-                            !Array.isArray(
-                                row,
-                            )
-                        ) {
-                            return;
-                        }
-
-                        row.forEach(
-                            (
-                                cell,
-                                colIndex,
-                            ) => {
-                                if (
-                                    colIndex >=
-                                    DEFAULT_COLUMNS
-                                ) {
-                                    return;
-                                }
-
-                                normalized[
-                                    rowIndex
-                                ][
-                                    colIndex
-                                ] = {
-                                    ...cell,
-                                    value:
-                                        cell?.value ??
-                                        '',
-                                };
-                            },
-                        );
-                    },
-                );
-
-                setWorkbook(null);
-                setRows(normalized);
-
-                setColumnWidths(
-                    Array.isArray(
-                        (parsed as any)
-                            .columnWidths,
-                    )
-                        ? (parsed as any)
-                              .columnWidths
-                        : createDefaultColumnWidths(),
-                );
-
-                setRowHeights(
-                    Array.isArray(
-                        (parsed as any)
-                            .rowHeights,
-                    )
-                        ? (parsed as any)
-                              .rowHeights
-                        : createDefaultRowHeights(),
-                );
-
-                setMergedCells([]);
-
-                return;
-            }
-
             throw new Error(
-                'Unknown workbook format',
+                'Invalid EDTS workbook format.',
             );
         } catch (error) {
             console.error(
@@ -490,15 +425,19 @@ export default function ExcelEditor({
             );
 
             setWorkbook(null);
+
             setRows(
                 createEmptyRows(),
             );
+
             setColumnWidths(
                 createDefaultColumnWidths(),
             );
+
             setRowHeights(
                 createDefaultRowHeights(),
             );
+
             setMergedCells([]);
         }
     }, [content]);
@@ -547,7 +486,8 @@ export default function ExcelEditor({
 
         /*
         |--------------------------------------------------------------------------
-        | PRESERVE ALL CELL STYLES
+        | IMPORTANT:
+        | PRESERVE THE COMPLETE CELL OBJECT.
         |--------------------------------------------------------------------------
         */
 
@@ -602,7 +542,7 @@ export default function ExcelEditor({
 
         /*
         |--------------------------------------------------------------------------
-        | COLUMN WIDTHS
+        | PRESERVE IMPORTED COLUMN WIDTHS
         |--------------------------------------------------------------------------
         */
 
@@ -613,21 +553,24 @@ export default function ExcelEditor({
                         columnCount,
                 },
                 (_, index) => {
-                    const width =
+                    const importedWidth =
                         sheet
                             .columnWidths?.[
                             index
                         ];
 
                     if (
-                        typeof width ===
-                        'number'
+                        typeof importedWidth ===
+                        'number' &&
+                        Number.isFinite(
+                            importedWidth,
+                        )
                     ) {
                         return Math.max(
                             MIN_COLUMN_WIDTH,
                             Math.min(
                                 MAX_COLUMN_WIDTH,
-                                width,
+                                importedWidth,
                             ),
                         );
                     }
@@ -642,7 +585,7 @@ export default function ExcelEditor({
 
         /*
         |--------------------------------------------------------------------------
-        | ROW HEIGHTS
+        | PRESERVE IMPORTED ROW HEIGHTS
         |--------------------------------------------------------------------------
         */
 
@@ -653,21 +596,24 @@ export default function ExcelEditor({
                         rowCount,
                 },
                 (_, index) => {
-                    const height =
+                    const importedHeight =
                         sheet
                             .rowHeights?.[
                             index
                         ];
 
                     if (
-                        typeof height ===
-                        'number'
+                        typeof importedHeight ===
+                        'number' &&
+                        Number.isFinite(
+                            importedHeight,
+                        )
                     ) {
                         return Math.max(
                             MIN_ROW_HEIGHT,
                             Math.min(
                                 MAX_ROW_HEIGHT,
-                                height,
+                                importedHeight,
                             ),
                         );
                     }
@@ -713,18 +659,7 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | ACTIVE SHEET
-    |--------------------------------------------------------------------------
-    */
-
-    const activeSheet =
-        workbook?.sheets?.[
-            activeSheetIndex
-        ] ?? null;
-
-    /*
-    |--------------------------------------------------------------------------
-    | SAVE WORKBOOK
+    | SAVE CURRENT WORKBOOK STATE
     |--------------------------------------------------------------------------
     */
 
@@ -749,12 +684,16 @@ export default function ExcelEditor({
 
                         return {
                             ...sheet,
+
                             cells:
                                 nextRows,
+
                             columnWidths:
                                 nextWidths,
+
                             rowHeights:
                                 nextHeights,
+
                             mergedCells:
                                 mergedCells,
                         };
@@ -764,12 +703,16 @@ export default function ExcelEditor({
             const nextWorkbook: ExcelWorkbook =
                 {
                     ...workbook,
+
                     version:
                         workbook.version ??
                         1,
+
                     type: 'spreadsheet',
+
                     sheets:
                         nextSheets,
+
                     activeSheet:
                         activeSheetIndex,
                 };
@@ -802,7 +745,7 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | SELECTION
+    | SELECT CELL
     |--------------------------------------------------------------------------
     */
 
@@ -827,6 +770,7 @@ export default function ExcelEditor({
                     start:
                         current?.start ??
                         selectedCell,
+
                     end: normalized,
                 }),
             );
@@ -859,7 +803,7 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | EDITING
+    | EDIT CELL
     |--------------------------------------------------------------------------
     */
 
@@ -913,6 +857,12 @@ export default function ExcelEditor({
         );
     };
 
+    /*
+    |--------------------------------------------------------------------------
+    | COMMIT EDIT
+    |--------------------------------------------------------------------------
+    */
+
     const commitEditing = (
         move:
             | 'none'
@@ -958,6 +908,7 @@ export default function ExcelEditor({
                     current.row + 1,
                     rows.length - 1,
                 ),
+
                 col: current.col,
             });
         }
@@ -967,6 +918,7 @@ export default function ExcelEditor({
         ) {
             selectCell({
                 row: current.row,
+
                 col: Math.min(
                     current.col + 1,
                     columnWidths.length -
@@ -975,6 +927,12 @@ export default function ExcelEditor({
             });
         }
     };
+
+    /*
+    |--------------------------------------------------------------------------
+    | CANCEL EDIT
+    |--------------------------------------------------------------------------
+    */
 
     const cancelEditing =
         () => {
@@ -1072,6 +1030,11 @@ export default function ExcelEditor({
                     ][
                         col
                     ].value = '';
+
+                    /*
+                    Preserve formatting.
+                    Only remove the content.
+                    */
                 }
             }
 
@@ -1218,6 +1181,11 @@ export default function ExcelEditor({
                             return;
                         }
 
+                        /*
+                        Only replace value.
+                        Keep target formatting.
+                        */
+
                         nextRows[
                             targetRow
                         ][
@@ -1256,6 +1224,7 @@ export default function ExcelEditor({
         setSelectionRange({
             start:
                 selectedCell,
+
             end: {
                 row: Math.min(
                     selectedCell.row +
@@ -1264,10 +1233,12 @@ export default function ExcelEditor({
                     nextRows.length -
                         1,
                 ),
+
                 col: Math.min(
                     selectedCell.col +
                         pastedColumns -
                         1,
+
                     nextRows[0]
                         .length -
                         1,
@@ -1278,7 +1249,7 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | COLUMN RESIZE
+    | COLUMN RESIZE START
     |--------------------------------------------------------------------------
     */
 
@@ -1307,7 +1278,7 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | ROW RESIZE
+    | ROW RESIZE START
     |--------------------------------------------------------------------------
     */
 
@@ -1334,7 +1305,7 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | COLUMN RESIZE HANDLER
+    | COLUMN RESIZE
     |--------------------------------------------------------------------------
     */
 
@@ -1435,7 +1406,7 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | ROW RESIZE HANDLER
+    | ROW RESIZE
     |--------------------------------------------------------------------------
     */
 
@@ -1570,20 +1541,6 @@ export default function ExcelEditor({
 
         if (
             commandKey &&
-            key.toLowerCase() === 'c'
-        ) {
-            return;
-        }
-
-        if (
-            commandKey &&
-            key.toLowerCase() === 'v'
-        ) {
-            return;
-        }
-
-        if (
-            commandKey &&
             key.toLowerCase() === 'a'
         ) {
             event.preventDefault();
@@ -1598,9 +1555,11 @@ export default function ExcelEditor({
                     row: 0,
                     col: 0,
                 },
+
                 end: {
                     row:
                         rows.length - 1,
+
                     col:
                         rows[0]?.length -
                         1,
@@ -1647,6 +1606,7 @@ export default function ExcelEditor({
             selectCell({
                 row:
                     selectedCell.row,
+
                 col: shiftKey
                     ? Math.max(
                           selectedCell.col -
@@ -1675,6 +1635,7 @@ export default function ExcelEditor({
                 row:
                     selectedCell.row -
                     1,
+
                 col:
                     selectedCell.col,
             };
@@ -1687,6 +1648,7 @@ export default function ExcelEditor({
                 row:
                     selectedCell.row +
                     1,
+
                 col:
                     selectedCell.col,
             };
@@ -1698,6 +1660,7 @@ export default function ExcelEditor({
             nextPosition = {
                 row:
                     selectedCell.row,
+
                 col:
                     selectedCell.col -
                     1,
@@ -1710,6 +1673,7 @@ export default function ExcelEditor({
             nextPosition = {
                 row:
                     selectedCell.row,
+
                 col:
                     selectedCell.col +
                     1,
@@ -1736,6 +1700,7 @@ export default function ExcelEditor({
                         start:
                             current?.start ??
                             selectedCell,
+
                         end: normalized,
                     }),
                 );
@@ -1810,7 +1775,7 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | CELL MOUSE
+    | CELL MOUSE DOWN
     |--------------------------------------------------------------------------
     */
 
@@ -1832,6 +1797,7 @@ export default function ExcelEditor({
                     start:
                         current?.start ??
                         selectedCell,
+
                     end: position,
                 }),
             );
@@ -1850,6 +1816,12 @@ export default function ExcelEditor({
                 ?.value ?? '',
         );
     };
+
+    /*
+    |--------------------------------------------------------------------------
+    | DOUBLE CLICK
+    |--------------------------------------------------------------------------
+    */
 
     const handleCellDoubleClick = (
         row: number,
@@ -1879,9 +1851,11 @@ export default function ExcelEditor({
                     row: 0,
                     col,
                 },
+
                 end: {
                     row:
                         rows.length - 1,
+
                     col,
                 },
             });
@@ -1905,8 +1879,10 @@ export default function ExcelEditor({
                     row,
                     col: 0,
                 },
+
                 end: {
                     row,
+
                     col:
                         columnWidths.length -
                         1,
@@ -1916,7 +1892,7 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | SHEET CHANGE
+    | CHANGE SHEET
     |--------------------------------------------------------------------------
     */
 
@@ -1942,6 +1918,7 @@ export default function ExcelEditor({
 
         const nextWorkbook = {
             ...workbook,
+
             activeSheet: index,
         };
 
@@ -1976,7 +1953,7 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | FOCUS
+    | FOCUS GRID
     |--------------------------------------------------------------------------
     */
 
@@ -1991,7 +1968,7 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | MERGED CELL HELPERS
+    | MERGE HELPERS
     |--------------------------------------------------------------------------
     */
 
@@ -2082,6 +2059,7 @@ export default function ExcelEditor({
                                     }
                                     className={[
                                         'h-8 min-w-[120px] border-x border-t px-4 text-xs font-medium transition',
+
                                         index ===
                                         activeSheetIndex
                                             ? 'border-slate-300 bg-white text-slate-900'
@@ -2153,12 +2131,20 @@ export default function ExcelEditor({
                     style={{
                         tableLayout:
                             'fixed',
+
+                        width:
+                            `${tableWidth}px`,
+
+                        minWidth:
+                            `${tableWidth}px`,
                     }}
                 >
                     <colgroup>
                         <col
                             style={{
-                                width: 48,
+                                width: `${ROW_HEADER_WIDTH}px`,
+                                minWidth: `${ROW_HEADER_WIDTH}px`,
+                                maxWidth: `${ROW_HEADER_WIDTH}px`,
                             }}
                         />
 
@@ -2172,7 +2158,9 @@ export default function ExcelEditor({
                                         col
                                     }
                                     style={{
-                                        width,
+                                        width: `${width}px`,
+                                        minWidth: `${width}px`,
+                                        maxWidth: `${width}px`,
                                     }}
                                 />
                             ),
@@ -2181,11 +2169,22 @@ export default function ExcelEditor({
 
                     <thead>
                         <tr>
-                            <th className="sticky left-0 top-0 z-40 h-8 w-12 border border-slate-300 bg-slate-100" />
+                            {/* CORNER */}
+
+                            <th
+                                className="sticky left-0 top-0 z-50 h-8 border border-slate-300 bg-slate-100"
+                                style={{
+                                    width: `${ROW_HEADER_WIDTH}px`,
+                                    minWidth: `${ROW_HEADER_WIDTH}px`,
+                                    maxWidth: `${ROW_HEADER_WIDTH}px`,
+                                }}
+                            />
+
+                            {/* COLUMN HEADERS */}
 
                             {columnWidths.map(
                                 (
-                                    _,
+                                    width,
                                     col,
                                 ) => (
                                     <th
@@ -2197,9 +2196,14 @@ export default function ExcelEditor({
                                                 col,
                                             )
                                         }
-                                        className="group sticky top-0 z-30 h-8 select-none border border-slate-300 bg-slate-100 px-2 text-center text-xs font-semibold text-slate-600"
+                                        className="group sticky top-0 z-40 h-8 select-none border border-slate-300 bg-slate-100 px-2 text-center text-xs font-semibold text-slate-600"
+                                        style={{
+                                            width: `${width}px`,
+                                            minWidth: `${width}px`,
+                                            maxWidth: `${width}px`,
+                                        }}
                                     >
-                                        <div className="relative flex h-full items-center justify-center">
+                                        <div className="relative flex h-full w-full items-center justify-center">
 
                                             {
                                                 columnName(
@@ -2210,12 +2214,12 @@ export default function ExcelEditor({
                                             <div
                                                 onMouseDown={(
                                                     event,
-                                                ) => {
+                                                ) =>
                                                     startColumnResize(
                                                         event,
                                                         col,
-                                                    );
-                                                }}
+                                                    )
+                                                }
                                                 onClick={(
                                                     event,
                                                 ) => {
@@ -2242,19 +2246,24 @@ export default function ExcelEditor({
                                     key={row}
                                     style={{
                                         height:
-                                            rowHeights[
-                                                row
-                                            ] ??
-                                            DEFAULT_ROW_HEIGHT,
+                                            `${rowHeights[row] ?? DEFAULT_ROW_HEIGHT}px`,
                                     }}
                                 >
+                                    {/* ROW HEADER */}
+
                                     <th
                                         onClick={() =>
                                             handleRowHeaderClick(
                                                 row,
                                             )
                                         }
-                                        className="group sticky left-0 z-20 cursor-pointer select-none border border-slate-300 bg-slate-100 text-center text-xs font-medium text-slate-500"
+                                        className="group sticky left-0 z-30 cursor-pointer select-none border border-slate-300 bg-slate-100 text-center text-xs font-medium text-slate-500"
+                                        style={{
+                                            width: `${ROW_HEADER_WIDTH}px`,
+                                            minWidth: `${ROW_HEADER_WIDTH}px`,
+                                            maxWidth: `${ROW_HEADER_WIDTH}px`,
+                                            height: `${rowHeights[row] ?? DEFAULT_ROW_HEIGHT}px`,
+                                        }}
                                     >
                                         <div className="relative flex h-full items-center justify-center">
 
@@ -2266,12 +2275,12 @@ export default function ExcelEditor({
                                             <div
                                                 onMouseDown={(
                                                     event,
-                                                ) => {
+                                                ) =>
                                                     startRowResize(
                                                         event,
                                                         row,
-                                                    );
-                                                }}
+                                                    )
+                                                }
                                                 onClick={(
                                                     event,
                                                 ) => {
@@ -2353,6 +2362,31 @@ export default function ExcelEditor({
                                                       1
                                                     : undefined;
 
+                                            /*
+                                            Calculate the actual
+                                            width of merged cells.
+                                            */
+
+                                            const mergedWidth =
+                                                mergeStart &&
+                                                merge
+                                                    ? columnWidths
+                                                          .slice(
+                                                              merge.startColumn,
+                                                              merge.endColumn +
+                                                                  1,
+                                                          )
+                                                          .reduce(
+                                                              (
+                                                                  total,
+                                                                  width,
+                                                              ) =>
+                                                                  total +
+                                                                  width,
+                                                              0,
+                                                          )
+                                                    : undefined;
+
                                             return (
                                                 <td
                                                     key={
@@ -2380,11 +2414,12 @@ export default function ExcelEditor({
                                                         )
                                                     }
                                                     className={[
-                                                        'relative min-w-0 p-0',
-                                                        'cursor-cell select-none',
+                                                        'relative cursor-cell select-none p-0',
+
                                                         inRange
                                                             ? 'bg-blue-50'
                                                             : '',
+
                                                         selected
                                                             ? 'z-10 outline outline-2 outline-blue-500'
                                                             : '',
@@ -2392,6 +2427,29 @@ export default function ExcelEditor({
                                                         ' ',
                                                     )}
                                                     style={{
+                                                        width:
+                                                            mergedWidth ??
+                                                            columnWidths[
+                                                                col
+                                                            ],
+
+                                                        minWidth:
+                                                            mergedWidth ??
+                                                            columnWidths[
+                                                                col
+                                                            ],
+
+                                                        maxWidth:
+                                                            mergedWidth ??
+                                                            columnWidths[
+                                                                col
+                                                            ],
+
+                                                        height:
+                                                            rowHeights[
+                                                                row
+                                                            ],
+
                                                         backgroundColor:
                                                             cell.backgroundColor ||
                                                             '#ffffff',
@@ -2430,16 +2488,6 @@ export default function ExcelEditor({
                                                         verticalAlign:
                                                             cell.verticalAlign ||
                                                             'middle',
-
-                                                        whiteSpace:
-                                                            cell.wrapText
-                                                                ? 'normal'
-                                                                : 'nowrap',
-
-                                                        wordBreak:
-                                                            cell.wrapText
-                                                                ? 'break-word'
-                                                                : 'normal',
 
                                                         borderTop:
                                                             cell.border
@@ -2557,8 +2605,14 @@ export default function ExcelEditor({
                                                         />
                                                     ) : (
                                                         <div
-                                                            className="flex h-full min-h-0 w-full min-w-0"
+                                                            className="flex h-full w-full"
                                                             style={{
+                                                                minWidth:
+                                                                    mergedWidth ??
+                                                                    columnWidths[
+                                                                        col
+                                                                    ],
+
                                                                 alignItems:
                                                                     cell.verticalAlign ===
                                                                     'top'
@@ -2589,7 +2643,12 @@ export default function ExcelEditor({
 
                                                                 overflowWrap:
                                                                     cell.wrapText
-                                                                        ? 'anywhere'
+                                                                        ? 'break-word'
+                                                                        : 'normal',
+
+                                                                wordBreak:
+                                                                    cell.wrapText
+                                                                        ? 'break-word'
                                                                         : 'normal',
 
                                                                 padding:
