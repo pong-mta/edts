@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Models\Department;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,20 @@ class AdminUserSeeder extends Seeder
      */
     public function run(): void
     {
+        /*
+        |--------------------------------------------------------------------------
+        | GET ADMIN DEPARTMENT
+        |--------------------------------------------------------------------------
+        */
+
+        $department = Department::where('code', 'HRMO')->first();
+
+        if (!$department) {
+            throw new \RuntimeException(
+                'HRMO department does not exist. Run DepartmentSeeder first.'
+            );
+        }
+
         /*
         |--------------------------------------------------------------------------
         | ADMIN ACCOUNT
@@ -28,9 +43,10 @@ class AdminUserSeeder extends Seeder
                 'name' => 'PONG ADMIN',
 
                 'phone_verified' => true,
-                'department' => 'HRMO',
-                'password' =>
-                Hash::make('jokerpong006'),
+
+                'department_id' => $department->id,
+
+                'password' => Hash::make('jokerpong006'),
             ]
         );
 
@@ -40,9 +56,8 @@ class AdminUserSeeder extends Seeder
         |--------------------------------------------------------------------------
         */
 
-        $adminRoleId =
-            DB::table('roles')
-            ->where('name', 'admin')
+        $adminRoleId = DB::table('roles')
+            ->where('name', 'system_admin')
             ->value('id');
 
         if (!$adminRoleId) {
