@@ -1,6 +1,6 @@
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import {
     Bell,
     CheckCircle2,
@@ -281,16 +281,13 @@ export default function Dashboard({
                                 Documents assigned to your department will appear here.
                             </p>
 
-                            <button
-                                type="button"
+                            <Link
+                                href={route('documents.create')}
                                 className="mt-5 inline-flex items-center gap-2 rounded-lg bg-blue-700 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-800"
                             >
-
                                 <Plus className="h-4 w-4" />
-
                                 Create Document
-
-                            </button>
+                            </Link>
 
                         </div>
 
