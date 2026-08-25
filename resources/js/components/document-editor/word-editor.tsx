@@ -138,6 +138,8 @@ export default function WordEditor({
 }: WordEditorProps) {
     const [fontSize, setFontSize] = useState('11');
 
+    
+
     const editor = useEditor({
         extensions: [
             StarterKit,
@@ -191,6 +193,50 @@ export default function WordEditor({
             onChange(editor.getHTML());
         },
     });
+
+    const syncFontSize = () => {
+        if (!editor) {
+            return;
+        }
+
+        const currentFontSize =
+            editor.getAttributes('textStyle').fontSize;
+
+        if (currentFontSize) {
+            setFontSize(
+                String(currentFontSize).replace(
+                    'pt',
+                    '',
+                ),
+            );
+        } else {
+            setFontSize('11');
+        }
+    };
+
+    useEffect(() => {
+        if (!editor) {
+            return;
+        }
+
+        const handleSelectionUpdate = () => {
+            syncFontSize();
+        };
+
+        editor.on(
+            'selectionUpdate',
+            handleSelectionUpdate,
+        );
+
+        syncFontSize();
+
+        return () => {
+            editor.off(
+                'selectionUpdate',
+                handleSelectionUpdate,
+            );
+        };
+    }, [editor]);
 
     /*
     |--------------------------------------------------------------------------
