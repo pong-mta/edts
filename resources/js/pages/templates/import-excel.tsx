@@ -1762,6 +1762,20 @@ export default function ImportExcel() {
                     buffer,
                 );
 
+            console.log(
+                '========== XLSX ZIP FILES =========='
+            );
+
+            Object.keys(zip.files).forEach(
+                (path) => {
+                    console.log(path);
+                },
+            );
+
+            console.log(
+                '===================================='
+            );
+
             /*
             |--------------------------------------------------------------------------
             | styles.xml
