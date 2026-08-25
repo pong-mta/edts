@@ -116,6 +116,7 @@ const MIN_ROW_HEIGHT = 18;
 const MAX_ROW_HEIGHT = 200;
 
 const ROW_HEADER_WIDTH = 48;
+const COLUMN_HEADER_HEIGHT = 32;
 
 const createEmptyRows = (): Cell[][] =>
     Array.from(
@@ -467,6 +468,19 @@ export default function ExcelEditor({
     const getImagePosition = (
         image: ExcelImage,
     ) => {
+        /*
+        * The absolute image layer covers the entire
+        * spreadsheet container.
+        *
+        * The table itself has:
+        *
+        * - 48px row-header column on the left
+        * - 32px column-header row on top
+        *
+        * Excel drawing coordinates start at the
+        * worksheet cell area, NOT at those headers.
+        */
+
         let left = ROW_HEADER_WIDTH;
 
         for (
@@ -479,7 +493,7 @@ export default function ExcelEditor({
                 DEFAULT_COLUMN_WIDTH;
         }
 
-        let top = 0;
+        let top = COLUMN_HEADER_HEIGHT;
 
         for (
             let row = 0;
@@ -492,8 +506,7 @@ export default function ExcelEditor({
         }
 
         /*
-        * Excel drawing offsets are EMUs.
-        * Convert them to CSS pixels.
+        * Excel stores drawing offsets in EMU.
         */
         const offsetX =
             (image.offsetX ?? 0) /
@@ -504,11 +517,8 @@ export default function ExcelEditor({
             EMU_PER_PIXEL;
 
         return {
-            left:
-                left + offsetX,
-
-            top:
-                top + offsetY,
+            left: left + offsetX,
+            top: top + offsetY,
         };
     };
 
