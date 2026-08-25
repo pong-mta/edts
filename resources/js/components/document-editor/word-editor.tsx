@@ -13,6 +13,7 @@ import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
+import { TableRowHeight } from '@/components/document-editor/extensions/table-row-height';
 
 import {
     Bold,
@@ -105,6 +106,9 @@ export default function WordEditor({
         cols: 0,
     });
 
+    const [rowHeight, setRowHeight] =
+    useState('24');
+
  
     
 
@@ -116,7 +120,7 @@ export default function WordEditor({
                 resizable: true,
             }),
 
-            TableRow,
+            TableRowHeight,
             TableHeader,
             TableCell,
 
@@ -901,6 +905,71 @@ export default function WordEditor({
                                     ×T
                                 </span>
                             </ToolbarButton>
+                        </>
+                    )}
+
+                   <ToolbarDivider />
+
+                    {editor.isActive('table') && (
+                        <>
+                            <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-slate-500">
+                                    Row
+                                </span>
+
+                                <input
+                                    type="number"
+                                    min="24"
+                                    max="500"
+                                    step="1"
+                                    value={rowHeight}
+                                    onChange={(event) => {
+                                        setRowHeight(
+                                            event.target.value,
+                                        );
+                                    }}
+                                    onKeyDown={(event) => {
+                                        if (event.key !== 'Enter') {
+                                            return;
+                                        }
+
+                                        event.preventDefault();
+
+                                        const height =
+                                            Number(
+                                                event.currentTarget
+                                                    .value,
+                                            );
+
+                                        if (
+                                            !Number.isFinite(
+                                                height,
+                                            ) ||
+                                            height < 24 ||
+                                            height > 500
+                                        ) {
+                                            return;
+                                        }
+
+                                        editor
+                                            .chain()
+                                            .focus()
+                                            .updateAttributes(
+                                                'tableRow',
+                                                {
+                                                    height,
+                                                },
+                                            )
+                                            .run();
+                                    }}
+                                    className="h-8 w-[58px] rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500"
+                                    title="Row height"
+                                />
+
+                                <span className="text-[10px] text-slate-500">
+                                    px
+                                </span>
+                            </div>
                         </>
                     )}
 
