@@ -150,8 +150,15 @@ export const TableCellAlignment = TableCell.extend({
                     );
                 },
 
-                renderHTML: () => {
-                    return {};
+                renderHTML: (attributes) => {
+                    if (!attributes.borderTop) {
+                        return {};
+                    }
+
+                    return {
+                        'data-border-top': attributes.borderTop,
+                        style: `border-top: ${attributes.borderTop};`,
+                    };
                 },
             },
 
