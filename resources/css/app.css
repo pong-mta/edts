@@ -156,3 +156,69 @@
         @apply bg-background text-foreground;
     }
 }
+
+
+/* ============================================================
+   eDTS Word Document
+   ============================================================ */
+
+.word-document {
+    font-family: Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.15;
+}
+
+.word-document p {
+    font-size: 11pt;
+    line-height: 1.15;
+    margin-top: 0;
+    margin-bottom: 8pt;
+}
+
+.word-document h1 {
+    font-size: 24pt;
+    line-height: 1.15;
+    font-weight: 700;
+    margin-top: 18pt;
+    margin-bottom: 10pt;
+}
+
+.word-document h2 {
+    font-size: 20pt;
+    line-height: 1.15;
+    font-weight: 700;
+    margin-top: 16pt;
+    margin-bottom: 8pt;
+}
+
+.word-document h3 {
+    font-size: 16pt;
+    line-height: 1.15;
+    font-weight: 700;
+    margin-top: 14pt;
+    margin-bottom: 7pt;
+}
+
+.word-document h4 {
+    font-size: 14pt;
+    line-height: 1.15;
+    font-weight: 700;
+    margin-top: 12pt;
+    margin-bottom: 6pt;
+}
+
+.word-document h5 {
+    font-size: 12pt;
+    line-height: 1.15;
+    font-weight: 700;
+    margin-top: 10pt;
+    margin-bottom: 5pt;
+}
+
+.word-document h6 {
+    font-size: 11pt;
+    line-height: 1.15;
+    font-weight: 700;
+    margin-top: 8pt;
+    margin-bottom: 4pt;
+}

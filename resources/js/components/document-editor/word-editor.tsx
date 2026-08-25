@@ -31,70 +31,22 @@ interface WordEditorProps {
 }
 
 const FONT_FAMILIES = [
-    {
-        label: 'Arial',
-        value: 'Arial',
-    },
-    {
-        label: 'Arial Black',
-        value: 'Arial Black',
-    },
-    {
-        label: 'Calibri',
-        value: 'Calibri',
-    },
-    {
-        label: 'Cambria',
-        value: 'Cambria',
-    },
-    {
-        label: 'Candara',
-        value: 'Candara',
-    },
-    {
-        label: 'Century Gothic',
-        value: 'Century Gothic',
-    },
-    {
-        label: 'Comic Sans MS',
-        value: 'Comic Sans MS',
-    },
-    {
-        label: 'Consolas',
-        value: 'Consolas',
-    },
-    {
-        label: 'Courier New',
-        value: 'Courier New',
-    },
-    {
-        label: 'Georgia',
-        value: 'Georgia',
-    },
-    {
-        label: 'Helvetica',
-        value: 'Helvetica',
-    },
-    {
-        label: 'Impact',
-        value: 'Impact',
-    },
-    {
-        label: 'Tahoma',
-        value: 'Tahoma',
-    },
-    {
-        label: 'Times New Roman',
-        value: 'Times New Roman',
-    },
-    {
-        label: 'Trebuchet MS',
-        value: 'Trebuchet MS',
-    },
-    {
-        label: 'Verdana',
-        value: 'Verdana',
-    },
+    { label: 'Arial', value: 'Arial' },
+    { label: 'Arial Black', value: 'Arial Black' },
+    { label: 'Calibri', value: 'Calibri' },
+    { label: 'Cambria', value: 'Cambria' },
+    { label: 'Candara', value: 'Candara' },
+    { label: 'Century Gothic', value: 'Century Gothic' },
+    { label: 'Comic Sans MS', value: 'Comic Sans MS' },
+    { label: 'Consolas', value: 'Consolas' },
+    { label: 'Courier New', value: 'Courier New' },
+    { label: 'Georgia', value: 'Georgia' },
+    { label: 'Helvetica', value: 'Helvetica' },
+    { label: 'Impact', value: 'Impact' },
+    { label: 'Tahoma', value: 'Tahoma' },
+    { label: 'Times New Roman', value: 'Times New Roman' },
+    { label: 'Trebuchet MS', value: 'Trebuchet MS' },
+    { label: 'Verdana', value: 'Verdana' },
 ];
 
 const FONT_SIZES = [
@@ -137,6 +89,8 @@ export default function WordEditor({
     onChange,
 }: WordEditorProps) {
     const [fontSize, setFontSize] = useState('11');
+    const [fontFamily, setFontFamily] =
+    useState('Arial');
 
     
 
@@ -185,7 +139,11 @@ export default function WordEditor({
         editorProps: {
             attributes: {
                 class:
-                    'prose prose-slate max-w-none min-h-[960px] outline-none text-[11pt]',
+                    'word-document prose prose-slate max-w-none min-h-[960px] outline-none text-[11pt]',
+            },
+
+            handleDOMEvents: {
+                // Keep the editor behaving like a normal document.
             },
         },
 
@@ -214,6 +172,26 @@ export default function WordEditor({
         }
     };
 
+    const syncFontFamily = () => {
+        if (!editor) {
+            return;
+        }
+
+        const currentFontFamily =
+            editor.getAttributes('textStyle').fontFamily;
+
+        if (currentFontFamily) {
+            setFontFamily(
+                currentFontFamily.replace(
+                    /^['"]|['"]$/g,
+                    '',
+                ),
+            );
+        } else {
+            setFontFamily('Arial');
+        }
+    };
+
     useEffect(() => {
         if (!editor) {
             return;
@@ -221,6 +199,7 @@ export default function WordEditor({
 
         const handleSelectionUpdate = () => {
             syncFontSize();
+            syncFontFamily();
         };
 
         editor.on(
@@ -229,6 +208,7 @@ export default function WordEditor({
         );
 
         syncFontSize();
+        syncFontFamily();
 
         return () => {
             editor.off(
@@ -308,7 +288,7 @@ export default function WordEditor({
     |--------------------------------------------------------------------------
     */
 
-    const setFontFamily = (
+    const applyFontFamily = (
         value: string,
     ) => {
         if (value === 'default') {
@@ -320,6 +300,8 @@ export default function WordEditor({
 
             return;
         }
+
+        setFontFamily(value);
 
         editor
             .chain()
@@ -458,9 +440,9 @@ export default function WordEditor({
                         <Type className="ml-1 h-4 w-4 text-slate-500" />
 
                         <select
-                            defaultValue="default"
+                            value={fontFamily}
                             onChange={(event) =>
-                                setFontFamily(
+                                applyFontFamily(
                                     event.target.value,
                                 )
                             }
