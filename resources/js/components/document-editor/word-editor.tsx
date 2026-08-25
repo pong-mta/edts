@@ -269,25 +269,30 @@ export default function WordEditor({
             ) {
                 const pos = $from.before(depth);
 
-                const current = node.attrs;
-
                 const width =
-                    current.borderWidth || 1;
+                    node.attrs.borderWidth || 1;
 
                 const style =
-                    current.borderStyle || 'solid';
+                    node.attrs.borderStyle || 'solid';
 
                 const color =
-                    current.borderColor || '#000000';
+                    node.attrs.borderColor || '#000000';
 
                 const border =
                     `${width}px ${style} ${color}`;
 
-                const updates: Record<string, string | null> = {
-                    borderTop: null,
-                    borderRight: null,
-                    borderBottom: null,
-                    borderLeft: null,
+                const updates: Record<
+                    string,
+                    string | null
+                > = {
+                    borderTop:
+                        node.attrs.borderTop,
+                    borderRight:
+                        node.attrs.borderRight,
+                    borderBottom:
+                        node.attrs.borderBottom,
+                    borderLeft:
+                        node.attrs.borderLeft,
                 };
 
                 if (side === 'all') {
@@ -295,21 +300,38 @@ export default function WordEditor({
                     updates.borderRight = border;
                     updates.borderBottom = border;
                     updates.borderLeft = border;
-                } else if (side === 'none') {
-                    // Leave all sides null.
-                } else {
-                    updates[`border${side.charAt(0).toUpperCase()}${side.slice(1)}`] =
-                        border;
                 }
 
-                const tr = state.tr.setNodeMarkup(
-                    pos,
-                    undefined,
-                    {
-                        ...current,
-                        ...updates,
-                    },
-                );
+                if (side === 'none') {
+                    updates.borderTop = null;
+                    updates.borderRight = null;
+                    updates.borderBottom = null;
+                    updates.borderLeft = null;
+                }
+
+                if (
+                    side !== 'all' &&
+                    side !== 'none'
+                ) {
+                    const key =
+                        `border${
+                            side
+                                .charAt(0)
+                                .toUpperCase()
+                        }${side.slice(1)}`;
+
+                    updates[key] = border;
+                }
+
+                const tr =
+                    state.tr.setNodeMarkup(
+                        pos,
+                        undefined,
+                        {
+                            ...node.attrs,
+                            ...updates,
+                        },
+                    );
 
                 editor.view.dispatch(tr);
 

@@ -82,7 +82,7 @@ export const TableCellAlignment = TableCell.extend({
                             attributes.borderColor,
 
                         style:
-                            `border: 1px solid ${attributes.borderColor};`,
+                            `border-color: ${attributes.borderColor};`,
                     };
                 },
             },
@@ -150,18 +150,8 @@ export const TableCellAlignment = TableCell.extend({
                     );
                 },
 
-                renderHTML: (attributes) => {
-                    if (!attributes.borderTop) {
-                        return {};
-                    }
-
-                    return {
-                        'data-border-top':
-                            attributes.borderTop,
-
-                        style:
-                            `border-top: ${attributes.borderTop};`,
-                    };
+                renderHTML: () => {
+                    return {};
                 },
             },
 
@@ -176,18 +166,8 @@ export const TableCellAlignment = TableCell.extend({
                     );
                 },
 
-                renderHTML: (attributes) => {
-                    if (!attributes.borderRight) {
-                        return {};
-                    }
-
-                    return {
-                        'data-border-right':
-                            attributes.borderRight,
-
-                        style:
-                            `border-right: ${attributes.borderRight};`,
-                    };
+                renderHTML: () => {
+                    return {};
                 },
             },
 
@@ -202,18 +182,8 @@ export const TableCellAlignment = TableCell.extend({
                     );
                 },
 
-                renderHTML: (attributes) => {
-                    if (!attributes.borderBottom) {
-                        return {};
-                    }
-
-                    return {
-                        'data-border-bottom':
-                            attributes.borderBottom,
-
-                        style:
-                            `border-bottom: ${attributes.borderBottom};`,
-                    };
+                renderHTML: () => {
+                    return {};
                 },
             },
 
@@ -228,18 +198,8 @@ export const TableCellAlignment = TableCell.extend({
                     );
                 },
 
-                renderHTML: (attributes) => {
-                    if (!attributes.borderLeft) {
-                        return {};
-                    }
-
-                    return {
-                        'data-border-left':
-                            attributes.borderLeft,
-
-                        style:
-                            `border-left: ${attributes.borderLeft};`,
-                    };
+                renderHTML: () => {
+                    return {};
                 },
             },
         };
