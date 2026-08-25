@@ -28,7 +28,7 @@ class AdminUserSeeder extends Seeder
                 'name' => 'PONG ADMIN',
 
                 'phone_verified' => true,
-
+                'department' => 'HRMO',
                 'password' =>
                 Hash::make('jokerpong006'),
             ]

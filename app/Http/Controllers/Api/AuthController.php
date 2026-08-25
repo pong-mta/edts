@@ -35,6 +35,12 @@ class AuthController extends Controller
                 'unique:users,phone',
             ],
 
+            'department' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
             'password' => [
                 'required',
                 'string',
@@ -61,6 +67,7 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $validated['name'],
             'phone' => $validated['phone'],
+            'department' => $validated['department'],
             'password' => Hash::make(
                 $validated['password']
             ),
@@ -246,6 +253,9 @@ class AuthController extends Controller
                 'phone' =>
                 $user->phone,
 
+                'department' =>
+                $user->department,
+
                 'phone_verified' =>
                 $user->phone_verified,
 
@@ -411,6 +421,9 @@ class AuthController extends Controller
 
                 'phone' =>
                 $user->phone,
+
+                'department' =>
+                $user->department,
 
                 'phone_verified' =>
                 $user->phone_verified,
