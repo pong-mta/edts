@@ -335,13 +335,22 @@ export default function ImportExcel() {
                                         address
                                     ];
                                 if (
-                                        address === 'A1'
-                                    ) {
-                                        console.log(
-                                            'A1 SOURCE CELL:',
+                                    address === 'A1'
+                                ) {
+                                    console.log(
+                                        'A1 SOURCE CELL:',
+                                        JSON.stringify(
                                             sourceCell,
-                                        );
-                                    }
+                                            null,
+                                            2,
+                                        ),
+                                    );
+
+                                    console.log(
+                                        'A1 STYLE:',
+                                        sourceCell.s,
+                                    );
+                                }
 
                                 if (
                                     !sourceCell
