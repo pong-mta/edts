@@ -9,7 +9,7 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
 import { FontSize } from '@/components/document-editor/extensions/font-size';
-import Heading from '@tiptap/extension-heading';
+
 import {
     Bold,
     Highlighter,
@@ -98,9 +98,7 @@ export default function WordEditor({
         extensions: [
             StarterKit,
 
-            Heading.configure({
-                levels: [1, 2, 3, 4, 5, 6],
-            }),
+
 
             TextStyle,
             FontSize,
