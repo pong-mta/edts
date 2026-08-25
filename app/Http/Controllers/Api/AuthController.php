@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
@@ -649,20 +650,34 @@ class AuthController extends Controller
         $user->tokens()->delete();
 
         /*
-        |--------------------------------------------------------------------------
-        | CREATE TOKEN
-        |--------------------------------------------------------------------------
-        */
+|--------------------------------------------------------------------------
+| CREATE SANCTUM TOKEN
+|--------------------------------------------------------------------------
+*/
 
         $token = $user->createToken(
             'eDTS Mobile/Web'
         )->plainTextToken;
 
         /*
-        |--------------------------------------------------------------------------
-        | RESPONSE
-        |--------------------------------------------------------------------------
-        */
+|--------------------------------------------------------------------------
+| CREATE WEB SESSION
+|--------------------------------------------------------------------------
+|
+| This allows the Inertia dashboard to work with
+| Laravel's normal auth middleware.
+|
+*/
+
+        Auth::login($user);
+
+        $request->session()->regenerate();
+
+        /*
+|--------------------------------------------------------------------------
+| RESPONSE
+|--------------------------------------------------------------------------
+*/
 
         return response()->json([
             'message' =>
