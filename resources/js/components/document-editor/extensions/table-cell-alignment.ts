@@ -1,6 +1,8 @@
 import { TableCell } from '@tiptap/extension-table-cell';
 
 export const TableCellAlignment = TableCell.extend({
+    name: 'tableCell',
+
     addAttributes() {
         return {
             ...this.parent?.(),
@@ -10,24 +12,18 @@ export const TableCellAlignment = TableCell.extend({
 
                 parseHTML: (element) => {
                     return (
-                        element.getAttribute(
-                            'data-vertical-align',
-                        ) || 'top'
+                        element.style
+                            .verticalAlign ||
+                        'top'
                     );
                 },
 
                 renderHTML: (attributes) => {
                     const value =
-                        attributes.verticalAlign;
-
-                    if (!value) {
-                        return {};
-                    }
+                        attributes.verticalAlign ||
+                        'top';
 
                     return {
-                        'data-vertical-align':
-                            value,
-
                         style: `vertical-align: ${value};`,
                     };
                 },
