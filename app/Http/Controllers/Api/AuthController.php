@@ -75,13 +75,13 @@ class AuthController extends Controller
             'phone_verified' => false,
         ]);
 
-        $customerRole = Role::where(
+        $departmentHeadRole = Role::where(
             'name',
-            'customer'
+            'department_head'
         )->firstOrFail();
 
         $user->roles()->attach(
-            $customerRole->id
+            $departmentHeadRole->id
         );
 
         /*
