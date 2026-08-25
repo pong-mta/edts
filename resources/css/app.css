@@ -297,3 +297,35 @@
 .word-document h6[style*="text-align: justify"] {
     text-align: justify;
 }
+
+
+/* ============================================================
+   eDTS TABLES
+   ============================================================ */
+
+.word-document table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin: 8pt 0;
+}
+
+.word-document th,
+.word-document td {
+    border: 1px solid #000;
+    padding: 4pt 6pt;
+    min-width: 40px;
+    vertical-align: top;
+    font-size: 11pt;
+    font-weight: 400;
+    line-height: 1.15;
+}
+
+.word-document th {
+    font-weight: 700;
+    background: #f3f4f6;
+}
+
+.word-document .selectedCell {
+    background: #dbeafe;
+}
