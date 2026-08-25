@@ -1,6 +1,7 @@
 import React, {
     ClipboardEvent,
     KeyboardEvent,
+    MouseEvent,
     useEffect,
     useMemo,
     useRef,
@@ -33,7 +34,9 @@ const DEFAULT_COLUMN_WIDTH = 100;
 const MIN_COLUMN_WIDTH = 40;
 const MAX_COLUMN_WIDTH = 500;
 
-const ROW_HEIGHT = 28;
+const DEFAULT_ROW_HEIGHT = 28;
+const MIN_ROW_HEIGHT = 18;
+const MAX_ROW_HEIGHT = 200;
 
 const createEmptyRows = (): Cell[][] =>
     Array.from(
@@ -47,12 +50,20 @@ const createEmptyRows = (): Cell[][] =>
             ),
     );
 
-const createDefaultColumnWidths = () =>
+const createDefaultColumnWidths = (): number[] =>
     Array.from(
         {
             length: DEFAULT_COLUMNS,
         },
         () => DEFAULT_COLUMN_WIDTH,
+    );
+
+const createDefaultRowHeights = (): number[] =>
+    Array.from(
+        {
+            length: DEFAULT_ROWS,
+        },
+        () => DEFAULT_ROW_HEIGHT,
     );
 
 const cloneRows = (
@@ -74,6 +85,7 @@ const normalizePosition = (
             DEFAULT_ROWS - 1,
         ),
     ),
+
     col: Math.max(
         0,
         Math.min(
@@ -183,6 +195,13 @@ export default function ExcelEditor({
         createDefaultColumnWidths,
     );
 
+    const [
+        rowHeights,
+        setRowHeights,
+    ] = useState<number[]>(
+        createDefaultRowHeights,
+    );
+
     const [selectedCell, setSelectedCell] =
         useState<CellPosition>({
             row: 0,
@@ -221,8 +240,20 @@ export default function ExcelEditor({
     );
 
     const [
+        resizingRow,
+        setResizingRow,
+    ] = useState<number | null>(
+        null,
+    );
+
+    const [
         resizeStartX,
         setResizeStartX,
+    ] = useState(0);
+
+    const [
+        resizeStartY,
+        setResizeStartY,
     ] = useState(0);
 
     const [
@@ -230,6 +261,13 @@ export default function ExcelEditor({
         setResizeStartWidth,
     ] = useState(
         DEFAULT_COLUMN_WIDTH,
+    );
+
+    const [
+        resizeStartHeight,
+        setResizeStartHeight,
+    ] = useState(
+        DEFAULT_ROW_HEIGHT,
     );
 
     const inputRef =
@@ -240,16 +278,22 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | LOAD SAVED CONTENT
+    | LOAD
     |--------------------------------------------------------------------------
     */
 
     useEffect(() => {
         if (!content) {
             setRows(createEmptyRows());
+
             setColumnWidths(
                 createDefaultColumnWidths(),
             );
+
+            setRowHeights(
+                createDefaultRowHeights(),
+            );
+
             return;
         }
 
@@ -258,8 +302,9 @@ export default function ExcelEditor({
                 JSON.parse(content);
 
             /*
-             * New spreadsheet format
+             * New spreadsheet structure
              */
+
             if (
                 parsed &&
                 typeof parsed ===
@@ -318,6 +363,10 @@ export default function ExcelEditor({
 
                 setRows(normalized);
 
+                /*
+                 * Column widths
+                 */
+
                 const widths =
                     createDefaultColumnWidths();
 
@@ -361,16 +410,63 @@ export default function ExcelEditor({
                     widths,
                 );
 
+                /*
+                 * Row heights
+                 */
+
+                const heights =
+                    createDefaultRowHeights();
+
+                if (
+                    Array.isArray(
+                        parsed.rowHeights,
+                    )
+                ) {
+                    parsed.rowHeights.forEach(
+                        (
+                            height: number,
+                            index: number,
+                        ) => {
+                            if (
+                                index >=
+                                DEFAULT_ROWS
+                            ) {
+                                return;
+                            }
+
+                            if (
+                                Number.isFinite(
+                                    height,
+                                )
+                            ) {
+                                heights[
+                                    index
+                                ] = Math.max(
+                                    MIN_ROW_HEIGHT,
+                                    Math.min(
+                                        MAX_ROW_HEIGHT,
+                                        height,
+                                    ),
+                                );
+                            }
+                        },
+                    );
+                }
+
+                setRowHeights(
+                    heights,
+                );
+
                 return;
             }
 
             /*
-             * Backward compatibility with
-             * the previous simple array format.
+             * Backward compatibility
+             * with previous array format.
              */
+
             if (
-                Array.isArray(parsed) &&
-                parsed.length > 0
+                Array.isArray(parsed)
             ) {
                 const normalized =
                     createEmptyRows();
@@ -429,6 +525,10 @@ export default function ExcelEditor({
             setColumnWidths(
                 createDefaultColumnWidths(),
             );
+
+            setRowHeights(
+                createDefaultRowHeights(),
+            );
         }
     }, [content]);
 
@@ -441,13 +541,17 @@ export default function ExcelEditor({
     const emitSpreadsheet = (
         nextRows: Cell[][],
         nextWidths: number[],
+        nextHeights: number[],
     ) => {
         onChange(
             JSON.stringify({
                 version: 1,
                 type: 'spreadsheet',
                 rows: nextRows,
-                columnWidths: nextWidths,
+                columnWidths:
+                    nextWidths,
+                rowHeights:
+                    nextHeights,
             }),
         );
     };
@@ -489,7 +593,9 @@ export default function ExcelEditor({
         setEditingCell(null);
 
         setFormulaValue(
-            rows[normalized.row]?.[
+            rows[
+                normalized.row
+            ]?.[
                 normalized.col
             ]?.value ?? '',
         );
@@ -524,7 +630,9 @@ export default function ExcelEditor({
 
         const value =
             initialValue ??
-            rows[normalized.row]?.[
+            rows[
+                normalized.row
+            ]?.[
                 normalized.col
             ]?.value ??
             '';
@@ -576,6 +684,7 @@ export default function ExcelEditor({
         emitSpreadsheet(
             nextRows,
             columnWidths,
+            rowHeights,
         );
 
         const current =
@@ -608,7 +717,9 @@ export default function ExcelEditor({
         setEditingCell(null);
 
         setEditingValue(
-            rows[selectedCell.row]?.[
+            rows[
+                selectedCell.row
+            ]?.[
                 selectedCell.col
             ]?.value ?? '',
         );
@@ -616,7 +727,7 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | CELL UPDATE
+    | UPDATE CELL
     |--------------------------------------------------------------------------
     */
 
@@ -636,6 +747,7 @@ export default function ExcelEditor({
         emitSpreadsheet(
             nextRows,
             columnWidths,
+            rowHeights,
         );
 
         if (
@@ -653,7 +765,7 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | CLEAR
+    | CLEAR CELLS
     |--------------------------------------------------------------------------
     */
 
@@ -704,6 +816,7 @@ export default function ExcelEditor({
         emitSpreadsheet(
             nextRows,
             columnWidths,
+            rowHeights,
         );
 
         setFormulaValue('');
@@ -850,6 +963,7 @@ export default function ExcelEditor({
         emitSpreadsheet(
             nextRows,
             columnWidths,
+            rowHeights,
         );
 
         const pastedRows =
@@ -892,21 +1006,56 @@ export default function ExcelEditor({
     */
 
     const startColumnResize = (
-        event: React.MouseEvent,
+        event: MouseEvent,
         col: number,
     ) => {
         event.preventDefault();
         event.stopPropagation();
 
         setResizingColumn(col);
+        setResizingRow(null);
+
         setResizeStartX(
             event.clientX,
         );
+
         setResizeStartWidth(
             columnWidths[col] ??
                 DEFAULT_COLUMN_WIDTH,
         );
     };
+
+    /*
+    |--------------------------------------------------------------------------
+    | ROW RESIZE
+    |--------------------------------------------------------------------------
+    */
+
+    const startRowResize = (
+        event: MouseEvent,
+        row: number,
+    ) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        setResizingRow(row);
+        setResizingColumn(null);
+
+        setResizeStartY(
+            event.clientY,
+        );
+
+        setResizeStartHeight(
+            rowHeights[row] ??
+                DEFAULT_ROW_HEIGHT,
+        );
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | RESIZE HANDLERS
+    |--------------------------------------------------------------------------
+    */
 
     useEffect(() => {
         if (
@@ -916,7 +1065,7 @@ export default function ExcelEditor({
         }
 
         const handleMouseMove = (
-            event: MouseEvent,
+            event: globalThis.MouseEvent,
         ) => {
             const delta =
                 event.clientX -
@@ -938,8 +1087,9 @@ export default function ExcelEditor({
                         ...current,
                     ];
 
-                    next[resizingColumn] =
-                        nextWidth;
+                    next[
+                        resizingColumn
+                    ] = nextWidth;
 
                     return next;
                 },
@@ -956,6 +1106,7 @@ export default function ExcelEditor({
                     emitSpreadsheet(
                         rows,
                         next,
+                        rowHeights,
                     );
 
                     return next;
@@ -991,6 +1142,94 @@ export default function ExcelEditor({
         resizeStartX,
         resizeStartWidth,
         rows,
+        rowHeights,
+    ]);
+
+    useEffect(() => {
+        if (
+            resizingRow === null
+        ) {
+            return;
+        }
+
+        const handleMouseMove = (
+            event: globalThis.MouseEvent,
+        ) => {
+            const delta =
+                event.clientY -
+                resizeStartY;
+
+            const nextHeight =
+                Math.max(
+                    MIN_ROW_HEIGHT,
+                    Math.min(
+                        MAX_ROW_HEIGHT,
+                        resizeStartHeight +
+                            delta,
+                    ),
+                );
+
+            setRowHeights(
+                (current) => {
+                    const next = [
+                        ...current,
+                    ];
+
+                    next[resizingRow] =
+                        nextHeight;
+
+                    return next;
+                },
+            );
+        };
+
+        const handleMouseUp = () => {
+            setRowHeights(
+                (current) => {
+                    const next = [
+                        ...current,
+                    ];
+
+                    emitSpreadsheet(
+                        rows,
+                        columnWidths,
+                        next,
+                    );
+
+                    return next;
+                },
+            );
+
+            setResizingRow(null);
+        };
+
+        document.addEventListener(
+            'mousemove',
+            handleMouseMove,
+        );
+
+        document.addEventListener(
+            'mouseup',
+            handleMouseUp,
+        );
+
+        return () => {
+            document.removeEventListener(
+                'mousemove',
+                handleMouseMove,
+            );
+
+            document.removeEventListener(
+                'mouseup',
+                handleMouseUp,
+            );
+        };
+    }, [
+        resizingRow,
+        resizeStartY,
+        resizeStartHeight,
+        rows,
+        columnWidths,
     ]);
 
     /*
@@ -1027,11 +1266,22 @@ export default function ExcelEditor({
             return;
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | SELECT ALL
+        |--------------------------------------------------------------------------
+        */
+
         if (
             commandKey &&
             key.toLowerCase() === 'a'
         ) {
             event.preventDefault();
+
+            setSelectedCell({
+                row: 0,
+                col: 0,
+            });
 
             setSelectionRange({
                 start: {
@@ -1046,13 +1296,14 @@ export default function ExcelEditor({
                 },
             });
 
-            setSelectedCell({
-                row: 0,
-                col: 0,
-            });
-
             return;
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | DELETE
+        |--------------------------------------------------------------------------
+        */
 
         if (
             key === 'Delete' ||
@@ -1065,6 +1316,12 @@ export default function ExcelEditor({
             return;
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | ENTER
+        |--------------------------------------------------------------------------
+        */
+
         if (key === 'Enter') {
             event.preventDefault();
 
@@ -1074,6 +1331,12 @@ export default function ExcelEditor({
 
             return;
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | F2
+        |--------------------------------------------------------------------------
+        */
 
         if (key === 'F2') {
             event.preventDefault();
@@ -1085,11 +1348,18 @@ export default function ExcelEditor({
             return;
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | TAB
+        |--------------------------------------------------------------------------
+        */
+
         if (key === 'Tab') {
             event.preventDefault();
 
             selectCell({
                 row: selectedCell.row,
+
                 col: shiftKey
                     ? Math.max(
                           selectedCell.col -
@@ -1106,6 +1376,12 @@ export default function ExcelEditor({
 
             return;
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | ARROWS
+        |--------------------------------------------------------------------------
+        */
 
         let nextPosition:
             | CellPosition
@@ -1248,7 +1524,7 @@ export default function ExcelEditor({
     */
 
     const handleCellMouseDown = (
-        event: React.MouseEvent,
+        event: MouseEvent,
         row: number,
         col: number,
     ) => {
@@ -1298,7 +1574,7 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | HEADERS
+    | COLUMN HEADER
     |--------------------------------------------------------------------------
     */
 
@@ -1315,6 +1591,7 @@ export default function ExcelEditor({
                 row: 0,
                 col,
             },
+
             end: {
                 row:
                     DEFAULT_ROWS - 1,
@@ -1322,6 +1599,12 @@ export default function ExcelEditor({
             },
         });
     };
+
+    /*
+    |--------------------------------------------------------------------------
+    | ROW HEADER
+    |--------------------------------------------------------------------------
+    */
 
     const handleRowHeaderClick = (
         row: number,
@@ -1336,6 +1619,7 @@ export default function ExcelEditor({
                 row,
                 col: 0,
             },
+
             end: {
                 row,
                 col:
@@ -1478,35 +1762,34 @@ export default function ExcelEditor({
                                                 col,
                                             )
                                         }
-                                        className={`group sticky top-0 z-30 h-8 select-none border border-slate-300 px-2 text-center text-xs font-semibold ${
-                                            isCellInRange(
-                                                {
-                                                    row: 0,
-                                                    col,
-                                                },
-                                                selectionRange,
-                                            )
-                                                ? 'bg-blue-100 text-blue-700'
-                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                                        }`}
+                                        className="group sticky top-0 z-30 h-8 select-none border border-slate-300 bg-slate-100 px-2 text-center text-xs font-semibold text-slate-600"
                                     >
                                         <div className="relative flex h-full items-center justify-center">
                                             {columnName(
                                                 col,
                                             )}
 
-                                            {/* RESIZE HANDLE */}
+                                            {/* COLUMN RESIZE HANDLE */}
 
                                             <div
                                                 onMouseDown={(
                                                     event,
-                                                ) =>
+                                                ) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+
                                                     startColumnResize(
                                                         event,
                                                         col,
-                                                    )
-                                                }
-                                                className="absolute right-[-3px] top-0 z-50 h-full w-[6px] cursor-col-resize"
+                                                    );
+                                                }}
+                                                onClick={(
+                                                    event,
+                                                ) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+                                                }}
+                                                className="absolute right-[-4px] top-0 z-[60] h-full w-[8px] cursor-col-resize"
                                                 title="Resize column"
                                             />
                                         </div>
@@ -1526,28 +1809,49 @@ export default function ExcelEditor({
                                     key={row}
                                     style={{
                                         height:
-                                            ROW_HEIGHT,
+                                            rowHeights[
+                                                row
+                                            ] ??
+                                            DEFAULT_ROW_HEIGHT,
                                     }}
                                 >
+                                    {/* ROW HEADER */}
+
                                     <th
                                         onClick={() =>
                                             handleRowHeaderClick(
                                                 row,
                                             )
                                         }
-                                        className={`sticky left-0 z-20 h-7 w-12 cursor-pointer select-none border border-slate-300 text-center text-xs font-medium ${
-                                            isCellInRange(
-                                                {
-                                                    row,
-                                                    col: 0,
-                                                },
-                                                selectionRange,
-                                            )
-                                                ? 'bg-blue-100 text-blue-700'
-                                                : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                        }`}
+                                        className="group sticky left-0 z-20 cursor-pointer select-none border border-slate-300 bg-slate-100 text-center text-xs font-medium text-slate-500"
                                     >
-                                        {row + 1}
+                                        <div className="relative flex h-full items-center justify-center">
+                                            {row + 1}
+
+                                            {/* ROW RESIZE HANDLE */}
+
+                                            <div
+                                                onMouseDown={(
+                                                    event,
+                                                ) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+
+                                                    startRowResize(
+                                                        event,
+                                                        row,
+                                                    );
+                                                }}
+                                                onClick={(
+                                                    event,
+                                                ) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+                                                }}
+                                                className="absolute bottom-[-4px] left-0 z-[60] h-[8px] w-full cursor-row-resize"
+                                                title="Resize row"
+                                            />
+                                        </div>
                                     </th>
 
                                     {rowData.map(
@@ -1600,7 +1904,7 @@ export default function ExcelEditor({
                                                         )
                                                     }
                                                     className={[
-                                                        'relative h-7 min-w-0 border border-slate-300 bg-white p-0 align-middle',
+                                                        'relative min-w-0 border border-slate-300 bg-white p-0 align-middle',
                                                         'cursor-cell select-none',
                                                         inRange
                                                             ? 'bg-blue-50'
@@ -1670,7 +1974,7 @@ export default function ExcelEditor({
                                                             className="absolute inset-0 z-20 h-full w-full border-0 bg-white px-2 text-sm text-slate-800 outline-none"
                                                         />
                                                     ) : (
-                                                        <div className="flex h-full min-h-7 w-full min-w-0 items-center overflow-hidden whitespace-nowrap px-2 text-sm text-slate-800">
+                                                        <div className="flex h-full min-h-0 w-full min-w-0 items-center overflow-hidden whitespace-nowrap px-2 text-sm text-slate-800">
                                                             {
                                                                 cell.value
                                                             }
