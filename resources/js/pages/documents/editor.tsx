@@ -10,6 +10,7 @@ import {
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import WordEditor from '@/components/document-editor/word-editor';
+import ExcelEditor from '@/components/document-editor/excel-editor';
 
 
 interface Department {
@@ -226,103 +227,12 @@ export default function Editor({
                         {/* ================================================== */}
 
                         {document.document_type === 'excel' && (
-                            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-
-                                <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
-
-                                    <p className="text-xs font-semibold text-slate-700">
-                                        Spreadsheet
-                                    </p>
-
-                                    <p className="mt-0.5 text-[10px] text-slate-500">
-                                        Spreadsheet editor will be added here.
-                                    </p>
-
-                                </div>
-
-                                <div className="overflow-auto">
-
-                                    <table className="w-full border-collapse text-xs">
-
-                                        <thead>
-                                            <tr>
-                                                <th className="w-10 border border-slate-200 bg-slate-100 p-2" />
-
-                                                {[
-                                                    'A',
-                                                    'B',
-                                                    'C',
-                                                    'D',
-                                                    'E',
-                                                    'F',
-                                                ].map(
-                                                    (column) => (
-                                                        <th
-                                                            key={column}
-                                                            className="min-w-[130px] border border-slate-200 bg-slate-100 p-2 text-center font-semibold text-slate-500"
-                                                        >
-                                                            {column}
-                                                        </th>
-                                                    ),
-                                                )}
-
-                                            </tr>
-                                        </thead>
-
-                                        <tbody>
-
-                                            {Array.from(
-                                                {
-                                                    length: 12,
-                                                },
-                                                (
-                                                    _,
-                                                    rowIndex,
-                                                ) => (
-                                                    <tr
-                                                        key={
-                                                            rowIndex
-                                                        }
-                                                    >
-
-                                                        <th className="border border-slate-200 bg-slate-50 p-2 text-center font-medium text-slate-400">
-                                                            {rowIndex +
-                                                                1}
-                                                        </th>
-
-                                                        {[
-                                                            'A',
-                                                            'B',
-                                                            'C',
-                                                            'D',
-                                                            'E',
-                                                            'F',
-                                                        ].map(
-                                                            (
-                                                                column,
-                                                            ) => (
-                                                                <td
-                                                                    key={
-                                                                        column
-                                                                    }
-                                                                    contentEditable
-                                                                    suppressContentEditableWarning
-                                                                    className="min-w-[130px] border border-slate-200 p-2 outline-none focus:bg-blue-50"
-                                                                />
-                                                            ),
-                                                        )}
-
-                                                    </tr>
-                                                ),
-                                            )}
-
-                                        </tbody>
-
-                                    </table>
-
-                                </div>
-
-                            </div>
+                            <ExcelEditor
+                                content={data.content}
+                                onChange={(content) =>
+                                    setData('content', content)
+                                }
+                            />
                         )}
 
                         {/* ================================================== */}

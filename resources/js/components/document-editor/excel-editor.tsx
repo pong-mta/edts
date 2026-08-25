@@ -11,7 +11,15 @@ type Cell = {
 const DEFAULT_ROWS = 30;
 const DEFAULT_COLUMNS = 15;
 
-export default function ExcelEditor() {
+interface ExcelEditorProps {
+    content: string | null;
+    onChange: (content: string) => void;
+}
+
+export default function ExcelEditor({
+    content,
+    onChange,
+}: ExcelEditorProps) {
     const [rows, setRows] = useState<
         Cell[][]
     >(() =>
@@ -74,6 +82,10 @@ export default function ExcelEditor() {
             next[row][col].value =
                 value;
 
+            onChange(
+                JSON.stringify(next),
+            );
+
             return next;
         });
     };
@@ -83,6 +95,23 @@ export default function ExcelEditor() {
             inputRef.current?.focus();
         }
     }, [selectedCell]);
+
+    useEffect(() => {
+        if (!content) {
+            return;
+        }
+
+        try {
+            const savedRows =
+                JSON.parse(content);
+
+            if (Array.isArray(savedRows)) {
+                setRows(savedRows);
+            }
+        } catch {
+            // Ignore invalid or legacy content.
+        }
+    }, [content]);
 
     return (
         <div className="w-full overflow-auto rounded-lg border border-slate-300 bg-white">
