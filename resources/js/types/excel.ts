@@ -66,6 +66,14 @@ export type ExcelImage = {
 
     offsetX?: number;
     offsetY?: number;
+
+    toRow?: number;
+    toColumn?: number;
+
+    toOffsetX?: number;
+    toOffsetY?: number;
+    x?: number;
+    y?: number;
 };
 
 export type ExcelSheet = {

@@ -1016,31 +1016,25 @@ function emuToPixels(
 
 function parseImageAnchor(
     anchor: Element,
+    columnWidths: number[],
+    rowHeights: number[],
 ) {
     const find = (
         name: string,
     ): Element | null => {
         return (
             Array.from(
-                anchor.getElementsByTagName(
-                    '*',
-                ),
+                anchor.getElementsByTagName('*'),
             ).find(
                 (element) =>
-                    element.localName ===
-                    name,
+                    element.localName === name,
             ) ?? null
         );
     };
 
-    const from =
-        find('from');
-
-    const to =
-        find('to');
-
-    const ext =
-        find('ext');
+    const from = find('from');
+    const to = find('to');
+    const ext = find('ext');
 
     const getNumber = (
         parent: Element | null,
@@ -1052,54 +1046,92 @@ function parseImageAnchor(
 
         const element =
             Array.from(
-                parent.getElementsByTagName(
-                    '*',
-                ),
+                parent.getElementsByTagName('*'),
             ).find(
                 (child) =>
-                    child.localName ===
-                    name,
+                    child.localName === name,
             );
 
         return Number(
-            element?.textContent ??
-                '0',
+            element?.textContent ?? '0',
         );
     };
 
-    const row =
-        getNumber(
-            from,
-            'row',
-        );
+    const row = getNumber(
+        from,
+        'row',
+    );
 
-    const column =
-        getNumber(
-            from,
-            'col',
-        );
+    const column = getNumber(
+        from,
+        'col',
+    );
 
-    const rowOffset =
-        getNumber(
-            from,
-            'rowOff',
-        );
+    const rowOffset = getNumber(
+        from,
+        'rowOff',
+    );
 
-    const colOffset =
-        getNumber(
-            from,
-            'colOff',
-        );
+    const colOffset = getNumber(
+        from,
+        'colOff',
+    );
 
+    /*
+     * Excel drawing coordinates are EMU.
+     * Convert the offsets to CSS pixels.
+     */
+    const offsetX =
+        emuToPixels(colOffset);
+
+    const offsetY =
+        emuToPixels(rowOffset);
+
+    /*
+     * Calculate the actual X position
+     * using the real Excel column widths.
+     */
+    let x = 0;
+
+    for (
+        let i = 0;
+        i < column;
+        i++
+    ) {
+        x +=
+            columnWidths[i] ??
+            100;
+    }
+
+    x += offsetX;
+
+    /*
+     * Calculate the actual Y position
+     * using the real Excel row heights.
+     */
+    let y = 0;
+
+    for (
+        let i = 0;
+        i < row;
+        i++
+    ) {
+        y +=
+            rowHeights[i] ??
+            28;
+    }
+
+    y += offsetY;
+
+    /*
+     * Default image size.
+     */
     let width = 120;
     let height = 80;
 
     /*
-    |--------------------------------------------------------------------------
-    | oneCellAnchor / absoluteAnchor
-    |--------------------------------------------------------------------------
-    */
-
+     * oneCellAnchor / absoluteAnchor
+     */
     if (ext) {
         const cx =
             Number(
@@ -1133,11 +1165,11 @@ function parseImageAnchor(
     }
 
     /*
-    |--------------------------------------------------------------------------
-    | twoCellAnchor
-    |--------------------------------------------------------------------------
-    */
-
+     * twoCellAnchor
+     *
+     * Calculate image size from the
+     * REAL Excel column/row dimensions.
+     */
     if (to) {
         const toRow =
             getNumber(
@@ -1163,63 +1195,71 @@ function parseImageAnchor(
                 'colOff',
             );
 
-        const startX =
-            column * 100 +
-            emuToPixels(
-                colOffset,
-            );
+        /*
+         * Calculate the ending X position.
+         */
+        let endX = 0;
 
-        const endX =
-            toColumn * 100 +
+        for (
+            let i = 0;
+            i < toColumn;
+            i++
+        ) {
+            endX +=
+                columnWidths[i] ??
+                100;
+        }
+
+        endX +=
             emuToPixels(
                 toColOffset,
             );
 
-        const startY =
-            row * 28 +
-            emuToPixels(
-                rowOffset,
-            );
+        /*
+         * Calculate the ending Y position.
+         */
+        let endY = 0;
 
-        const endY =
-            toRow * 28 +
+        for (
+            let i = 0;
+            i < toRow;
+            i++
+        ) {
+            endY +=
+                rowHeights[i] ??
+                28;
+        }
+
+        endY +=
             emuToPixels(
                 toRowOffset,
             );
 
-        if (
-            endX >
-            startX
-        ) {
+        if (endX > x) {
             width =
-                endX -
-                startX;
+                endX - x;
         }
 
-        if (
-            endY >
-            startY
-        ) {
+        if (endY > y) {
             height =
-                endY -
-                startY;
+                endY - y;
         }
     }
 
     return {
         row,
-
         column,
 
-        offsetX:
-            emuToPixels(
-                colOffset,
-            ),
+        offsetX,
 
-        offsetY:
-            emuToPixels(
-                rowOffset,
-            ),
+        offsetY,
+
+        /*
+         * Absolute position based on
+         * actual worksheet dimensions.
+         */
+        x,
+        y,
 
         width:
             Math.max(
@@ -1245,6 +1285,8 @@ async function extractSheetImages(
     zip: JSZip,
     sheetIndex: number,
     sheetName: string,
+    columnWidths: number[],
+    rowHeights: number[],
 ): Promise<ExcelImage[]> {
     const images: ExcelImage[] = [];
 
@@ -1834,6 +1876,8 @@ async function extractSheetImages(
             const position =
                 parseImageAnchor(
                     anchor,
+                    columnWidths,
+                    rowHeights,
                 );
 
             images.push({
@@ -1939,33 +1983,25 @@ async function extractSheetImages(
         const position =
             parseImageAnchor(
                 anchor,
+                columnWidths,
+                rowHeights,
             );
 
         const image: ExcelImage = {
-            id:
-                `${sheetName}-image-${
-                    index + 1
-                }`,
-
+            id: `${sheetName}-image-${index + 1}`,
             src,
 
-            row:
-                position.row,
+            row: position.row,
+            column: position.column,
 
-            column:
-                position.column,
+            width: position.width,
+            height: position.height,
 
-            width:
-                position.width,
+            offsetX: position.offsetX,
+            offsetY: position.offsetY,
 
-            height:
-                position.height,
-
-            offsetX:
-                position.offsetX,
-
-            offsetY:
-                position.offsetY,
+            x: position.x,
+            y: position.y,
         };
 
         images.push(
@@ -2605,6 +2641,8 @@ export default function ImportExcel() {
                         zip,
                         sheetIndex,
                         sheetName,
+                        columnWidths,
+                        rowHeights,
                     );
 
                 /*
