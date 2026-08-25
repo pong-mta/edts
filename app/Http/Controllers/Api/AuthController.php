@@ -3,30 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Role;
 use App\Models\User;
-use App\Services\SmsService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use App\Services\SmsService;
+use App\Models\Role;
+use App\Models\Department;
 
 class AuthController extends Controller
 {
-    /*
-    |--------------------------------------------------------------------------
-    | OTP SETTINGS
-    |--------------------------------------------------------------------------
-    */
-
-    private const OTP_EXPIRATION = 5; // minutes
-
-    private const RECOVERY_EXPIRATION = 15; // minutes
-
-    private const MAX_OTP_ATTEMPTS = 5;
-
-    private const MAX_RESENDS = 3;
-
     /*
     |--------------------------------------------------------------------------
     | REGISTER
@@ -74,6 +59,12 @@ class AuthController extends Controller
             'Password confirmation does not match.',
         ]);
 
+        /*
+        |--------------------------------------------------------------------------
+        | CREATE USER
+        |--------------------------------------------------------------------------
+        */
+
         $user = User::create([
             'name' => $validated['name'],
             'phone' => $validated['phone'],
@@ -84,57 +75,28 @@ class AuthController extends Controller
             'phone_verified' => false,
         ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | DEFAULT ROLE
-        |--------------------------------------------------------------------------
-        |
-        | Every newly registered user becomes Department Head.
-        |
-        */
-
-        $role = Role::where(
+        $departmentHeadRole = Role::where(
             'name',
             'department_head'
-        )->first();
+        )->firstOrFail();
 
-        if (!$role) {
-            return response()->json([
-                'message' =>
-                'Department Head role does not exist.',
-            ], 500);
-        }
-
-        $user->roles()->syncWithoutDetaching([
-            $role->id,
-        ]);
-
-        /*
-        |--------------------------------------------------------------------------
-        | REGISTRATION OTP
-        |--------------------------------------------------------------------------
-        */
-
-        $otp = $this->generateOtp();
-
-        Cache::put(
-            "registration_otp:{$user->id}",
-            $otp,
-            now()->addMinutes(self::OTP_EXPIRATION)
+        $user->roles()->attach(
+            $departmentHeadRole->id
         );
 
         /*
         |--------------------------------------------------------------------------
-        | SEND SMS
+        | SEND OTP
         |--------------------------------------------------------------------------
         */
 
-        $smsSent = $smsService->send(
-            $user->phone,
-            "Your eDTS verification code is {$otp}. This code expires in 5 minutes."
+        $otp = $this->createOtp(
+            $user,
+            $smsService
         );
 
-        if (!$smsSent) {
+        if (!$otp['sent']) {
+
             return response()->json([
                 'message' =>
                 'Registration completed, but OTP could not be sent.',
@@ -154,16 +116,543 @@ class AuthController extends Controller
             'otp_required' =>
             true,
 
-            'expires_in' =>
-            self::OTP_EXPIRATION * 60,
         ], 201);
     }
 
+
     /*
     |--------------------------------------------------------------------------
-    | FORGOT PASSWORD
+    | LOGIN
     |--------------------------------------------------------------------------
     */
+
+    public function login(
+        Request $request,
+        SmsService $smsService
+    ) {
+        $validated = $request->validate([
+            'phone' => [
+                'required',
+                'string',
+                'regex:/^09[0-9]{9}$/',
+            ],
+
+            'password' => [
+                'required',
+                'string',
+            ],
+        ], [
+            'phone.regex' =>
+            'Phone number must be exactly 11 digits and start with 09.',
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | FIND USER
+        |--------------------------------------------------------------------------
+        */
+
+        $user = User::where(
+            'phone',
+            $validated['phone']
+        )->first();
+
+        /*
+        |--------------------------------------------------------------------------
+        | INVALID CREDENTIALS
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !$user ||
+            !Hash::check(
+                $validated['password'],
+                $user->password
+            )
+        ) {
+
+            return response()->json([
+                'message' =>
+                'The phone number or password is incorrect.',
+            ], 401);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | PHONE NOT VERIFIED
+        |--------------------------------------------------------------------------
+        |
+        | User has the correct password, but their
+        | phone still needs verification.
+        |
+        */
+
+        if (!$user->phone_verified) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | GENERATE NEW OTP
+            |--------------------------------------------------------------------------
+            */
+
+            $otp = $this->createOtp(
+                $user,
+                $smsService
+            );
+
+            if (!$otp['sent']) {
+
+                return response()->json([
+                    'message' =>
+                    'Login successful, but we could not send the verification code.',
+                ], 500);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | SEND USER TO OTP SCREEN
+            |--------------------------------------------------------------------------
+            */
+
+            return response()->json([
+                'message' =>
+                'Phone number verification is required.',
+
+                'user_id' =>
+                $user->id,
+
+                'phone' =>
+                $user->phone,
+
+                'otp_required' =>
+                true,
+
+            ], 200);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | PHONE ALREADY VERIFIED
+        |--------------------------------------------------------------------------
+        */
+
+        $token = $user
+            ->createToken('mobile')
+            ->plainTextToken;
+
+        return response()->json([
+            'message' =>
+            'Login successful.',
+
+            'user' => [
+                'id' =>
+                $user->id,
+
+                'name' =>
+                $user->name,
+
+                'phone' =>
+                $user->phone,
+
+                'department' => $user->department ? [
+                    'id' => $user->department->id,
+                    'name' => $user->department->name,
+                    'code' => $user->department->code,
+                ] : null,
+
+                'phone_verified' =>
+                $user->phone_verified,
+
+                'roles' =>
+                $user->roles
+                    ->pluck('name')
+                    ->values()
+                    ->toArray(),
+            ],
+
+            'token' =>
+            $token,
+
+            'token_type' =>
+            'Bearer',
+
+            'otp_required' =>
+            false,
+
+
+
+        ], 200);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFY OTP
+    |--------------------------------------------------------------------------
+    */
+
+    public function verifyOtp(
+        Request $request
+    ) {
+        $validated = $request->validate([
+            'user_id' => [
+                'required',
+                'integer',
+                'exists:users,id',
+            ],
+
+            'otp' => [
+                'required',
+                'digits:6',
+            ],
+        ]);
+
+        $user = User::findOrFail(
+            $validated['user_id']
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | ALREADY VERIFIED
+        |--------------------------------------------------------------------------
+        */
+
+        if ($user->phone_verified) {
+
+            return response()->json([
+                'message' =>
+                'Phone number is already verified.',
+            ], 422);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | GET LATEST OTP
+        |--------------------------------------------------------------------------
+        */
+
+        $otpVerification = $user
+            ->otpVerifications()
+            ->whereNull('verified_at')
+            ->latest()
+            ->first();
+
+        if (!$otpVerification) {
+
+            return response()->json([
+                'message' =>
+                'No active OTP found.',
+            ], 422);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | CHECK EXPIRATION
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            $otpVerification
+            ->expires_at
+            ->isPast()
+        ) {
+
+            return response()->json([
+                'message' =>
+                'OTP has expired.',
+            ], 422);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | CHECK OTP
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !Hash::check(
+                $validated['otp'],
+                $otpVerification->otp_hash
+            )
+        ) {
+
+            return response()->json([
+                'message' =>
+                'Invalid OTP.',
+            ], 422);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | VERIFY PHONE
+        |--------------------------------------------------------------------------
+        */
+
+        $user->update([
+            'phone_verified' => true,
+        ]);
+
+        $otpVerification->update([
+            'verified_at' => now(),
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | CREATE SANCTUM TOKEN
+        |--------------------------------------------------------------------------
+        */
+
+        $token = $user
+            ->createToken('mobile')
+            ->plainTextToken;
+
+        /*
+        |--------------------------------------------------------------------------
+        | RESPONSE
+        |--------------------------------------------------------------------------
+        */
+
+        return response()->json([
+            'message' =>
+            'Phone number verified successfully.',
+
+            'user' => [
+                'id' =>
+                $user->id,
+
+                'name' =>
+                $user->name,
+
+                'phone' =>
+                $user->phone,
+
+                'department' => $user->department ? [
+                    'id' => $user->department->id,
+                    'name' => $user->department->name,
+                    'code' => $user->department->code,
+                ] : null,
+
+                'phone_verified' =>
+                $user->phone_verified,
+
+                'roles' =>
+                $user->roles
+                    ->pluck('name')
+                    ->values()
+                    ->toArray(),
+            ],
+
+            'token' =>
+            $token,
+
+            'token_type' =>
+            'Bearer',
+
+        ], 200);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | CREATE OTP
+    |--------------------------------------------------------------------------
+    */
+
+    private function createOtp(
+        User $user,
+        SmsService $smsService
+    ): array {
+
+        /*
+        |--------------------------------------------------------------------------
+        | GENERATE
+        |--------------------------------------------------------------------------
+        */
+
+        $otp = (string) random_int(
+            100000,
+            999999
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOG FOR DEVELOPMENT
+        |--------------------------------------------------------------------------
+        */
+
+        \Log::info('PONG OTP', [
+            'user_id' =>
+            $user->id,
+
+            'phone' =>
+            $user->phone,
+
+            'otp' =>
+            $otp,
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | DELETE OLD OTPs
+        |--------------------------------------------------------------------------
+        */
+
+        $user
+            ->otpVerifications()
+            ->delete();
+
+        /*
+        |--------------------------------------------------------------------------
+        | SAVE HASH
+        |--------------------------------------------------------------------------
+        */
+
+        $user
+            ->otpVerifications()
+            ->create([
+                'otp_hash' =>
+                Hash::make($otp),
+
+                'expires_at' =>
+                now()->addMinutes(5),
+            ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | SMS
+        |--------------------------------------------------------------------------
+        */
+
+        $message =
+            "Your PONG verification code is {$otp}. "
+            . "It expires in 5 minutes.";
+
+        $smsSent = $smsService->send(
+            $user->phone,
+            $message
+        );
+
+        return [
+            'sent' =>
+            $smsSent,
+
+            'otp' =>
+            $otp,
+        ];
+    }
+
+
+
+    public function resendOtp(
+        Request $request,
+        SmsService $smsService
+    ) {
+        $validated = $request->validate([
+            'user_id' => [
+                'required',
+                'integer',
+                'exists:users,id',
+            ],
+        ]);
+
+        $user = User::findOrFail(
+            $validated['user_id']
+        );
+
+        /*
+    |--------------------------------------------------------------------------
+    | ALREADY VERIFIED
+    |--------------------------------------------------------------------------
+    */
+
+        if ($user->phone_verified) {
+            return response()->json([
+                'message' =>
+                'Phone number is already verified.',
+            ], 422);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | GENERATE NEW OTP
+    |--------------------------------------------------------------------------
+    */
+
+        $otp = (string) random_int(
+            100000,
+            999999
+        );
+
+        \Log::info('PONG RESEND OTP', [
+            'user_id' => $user->id,
+            'phone' => $user->phone,
+            'otp' => $otp,
+        ]);
+
+        /*
+    |--------------------------------------------------------------------------
+    | DELETE OLD OTP
+    |--------------------------------------------------------------------------
+    */
+
+        $user
+            ->otpVerifications()
+            ->delete();
+
+        /*
+    |--------------------------------------------------------------------------
+    | SAVE NEW OTP
+    |--------------------------------------------------------------------------
+    */
+
+        $user
+            ->otpVerifications()
+            ->create([
+                'otp_hash' =>
+                Hash::make($otp),
+
+                'expires_at' =>
+                now()->addMinutes(5),
+            ]);
+
+        /*
+    |--------------------------------------------------------------------------
+    | SEND SMS
+    |--------------------------------------------------------------------------
+    */
+
+        $message =
+            "Your PONG verification code is {$otp}. "
+            . "It expires in 5 minutes.";
+
+        $smsSent = $smsService->send(
+            $user->phone,
+            $message
+        );
+
+        if (!$smsSent) {
+
+            return response()->json([
+                'message' =>
+                'Unable to send a new verification code.',
+            ], 500);
+        }
+
+        return response()->json([
+            'message' =>
+            'A new verification code has been sent.',
+
+            'user_id' =>
+            $user->id,
+
+            'phone' =>
+            $user->phone,
+
+            'expires_in' =>
+            300,
+
+        ], 200);
+    }
 
     public function forgotPassword(
         Request $request,
@@ -180,153 +669,112 @@ class AuthController extends Controller
             'Phone number must be exactly 11 digits and start with 09.',
         ]);
 
+        /*
+    |--------------------------------------------------------------------------
+    | FIND USER
+    |--------------------------------------------------------------------------
+    */
+
         $user = User::where(
             'phone',
             $validated['phone']
         )->first();
 
         /*
-        |--------------------------------------------------------------------------
-        | DO NOT REVEAL WHETHER ACCOUNT EXISTS
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | DON'T REVEAL WHETHER ACCOUNT EXISTS
+    |--------------------------------------------------------------------------
+    */
 
         if (!$user) {
+
             return response()->json([
                 'message' =>
-                'If the mobile number is registered, a verification code will be sent.',
+                'If this mobile number is registered, a verification code has been sent.',
+            ], 200);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | GENERATE OTP
+    |--------------------------------------------------------------------------
+    */
+
+        $otp = (string) random_int(
+            100000,
+            999999
+        );
+
+        \Log::info('PONG PASSWORD RESET OTP', [
+            'user_id' => $user->id,
+            'phone' => $user->phone,
+            'otp' => $otp,
+        ]);
+
+        /*
+    |--------------------------------------------------------------------------
+    | DELETE OLD OTPs
+    |--------------------------------------------------------------------------
+    */
+
+        $user
+            ->otpVerifications()
+            ->delete();
+
+        /*
+    |--------------------------------------------------------------------------
+    | SAVE OTP
+    |--------------------------------------------------------------------------
+    */
+
+        $user
+            ->otpVerifications()
+            ->create([
+                'otp_hash' =>
+                Hash::make($otp),
+
+                'expires_at' =>
+                now()->addMinutes(5),
             ]);
-        }
 
         /*
-        |--------------------------------------------------------------------------
-        | EXISTING RECOVERY SESSION
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | SEND SMS
+    |--------------------------------------------------------------------------
+    */
 
-        $sessionKey =
-            "password_recovery:{$user->id}";
-
-        $recovery = Cache::get(
-            $sessionKey
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | ALREADY ACTIVE
-        |--------------------------------------------------------------------------
-        |
-        | This prevents the user from going back to
-        | /forgot-password and generating another OTP.
-        |
-        */
-
-        if ($recovery) {
-
-            $expiresAt =
-                $recovery['expires_at'] ?? null;
-
-            if (
-                $expiresAt &&
-                now()->timestamp < $expiresAt
-            ) {
-                return response()->json([
-                    'message' =>
-                    'A password recovery request is already active. Please use the current verification code.',
-                    'user_id' =>
-                    $user->id,
-                    'otp_expires_at' =>
-                    $expiresAt,
-                ], 429);
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | RECOVERY SESSION EXPIRED
-            |--------------------------------------------------------------------------
-            */
-
-            Cache::forget(
-                $sessionKey
-            );
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | CREATE NEW RECOVERY SESSION
-        |--------------------------------------------------------------------------
-        */
-
-        $otp = $this->generateOtp();
-
-        $otpExpiresAt =
-            now()->addMinutes(
-                self::OTP_EXPIRATION
-            );
-
-        $recoveryExpiresAt =
-            now()->addMinutes(
-                self::RECOVERY_EXPIRATION
-            );
-
-        $recovery = [
-            'user_id' =>
-            $user->id,
-
-            'phone' =>
-            $user->phone,
-
-            'otp' =>
-            $otp,
-
-            'otp_expires_at' =>
-            $otpExpiresAt->timestamp,
-
-            'attempts' =>
-            0,
-
-            'resends' =>
-            0,
-
-            'created_at' =>
-            now()->timestamp,
-
-            'expires_at' =>
-            $recoveryExpiresAt->timestamp,
-        ];
-
-        Cache::put(
-            $sessionKey,
-            $recovery,
-            $recoveryExpiresAt
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | SEND OTP
-        |--------------------------------------------------------------------------
-        */
+        $message =
+            "Your PONG password reset code is {$otp}. "
+            . "It expires in 5 minutes.";
 
         $smsSent = $smsService->send(
             $user->phone,
-            "Your eDTS password recovery code is {$otp}. This code expires in 5 minutes."
+            $message
         );
+
+        /*
+    |--------------------------------------------------------------------------
+    | SMS FAILED
+    |--------------------------------------------------------------------------
+    */
 
         if (!$smsSent) {
 
-            Cache::forget(
-                $sessionKey
-            );
-
             return response()->json([
                 'message' =>
-                'Unable to send verification code. Please try again later.',
+                'Unable to send the verification code. Please try again.',
             ], 500);
         }
 
+        /*
+    |--------------------------------------------------------------------------
+    | SUCCESS
+    |--------------------------------------------------------------------------
+    */
+
         return response()->json([
             'message' =>
-            'If the mobile number is registered, a verification code has been sent.',
+            'Verification code sent.',
 
             'user_id' =>
             $user->id,
@@ -334,19 +782,12 @@ class AuthController extends Controller
             'phone' =>
             $user->phone,
 
-            'otp_expires_at' =>
-            $otpExpiresAt->timestamp,
+            'otp_required' =>
+            true,
 
-            'otp_expires_in' =>
-            self::OTP_EXPIRATION * 60,
-        ]);
+        ], 200);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | VERIFY FORGOT PASSWORD OTP
-    |--------------------------------------------------------------------------
-    */
 
     public function verifyForgotPasswordOtp(
         Request $request
@@ -364,173 +805,113 @@ class AuthController extends Controller
             ],
         ]);
 
-        $user = User::find(
+        $user = User::findOrFail(
             $validated['user_id']
         );
 
-        if (!$user) {
+        /*
+    |--------------------------------------------------------------------------
+    | GET LATEST OTP
+    |--------------------------------------------------------------------------
+    */
+
+        $otpVerification = $user
+            ->otpVerifications()
+            ->whereNull('verified_at')
+            ->latest()
+            ->first();
+
+        if (!$otpVerification) {
+
             return response()->json([
                 'message' =>
-                'Invalid recovery request.',
+                'No active verification code found.',
             ], 422);
         }
 
-        $sessionKey =
-            "password_recovery:{$user->id}";
-
-        $recovery = Cache::get(
-            $sessionKey
-        );
-
         /*
-        |--------------------------------------------------------------------------
-        | NO ACTIVE SESSION
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$recovery) {
-            return response()->json([
-                'message' =>
-                'This password recovery session has expired. Please start again.',
-            ], 410);
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | RECOVERY SESSION EXPIRED
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | CHECK EXPIRATION
+    |--------------------------------------------------------------------------
+    */
 
         if (
-            now()->timestamp >=
-            $recovery['expires_at']
+            $otpVerification
+            ->expires_at
+            ->isPast()
         ) {
-            Cache::forget(
-                $sessionKey
-            );
 
             return response()->json([
                 'message' =>
-                'This password recovery session has expired. Please start again.',
-            ], 410);
+                'Verification code has expired.',
+            ], 422);
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | OTP EXPIRED
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | CHECK OTP
+    |--------------------------------------------------------------------------
+    */
 
         if (
-            now()->timestamp >=
-            $recovery['otp_expires_at']
-        ) {
-            Cache::forget(
-                $sessionKey
-            );
-
-            return response()->json([
-                'message' =>
-                'Your verification code has expired. Please request a new code.',
-            ], 410);
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | MAX ATTEMPTS
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            $recovery['attempts'] >=
-            self::MAX_OTP_ATTEMPTS
-        ) {
-            Cache::forget(
-                $sessionKey
-            );
-
-            return response()->json([
-                'message' =>
-                'Too many incorrect attempts. Please request a new verification code.',
-            ], 429);
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | INVALID OTP
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            !hash_equals(
-                (string) $recovery['otp'],
-                (string) $validated['otp']
+            !Hash::check(
+                $validated['otp'],
+                $otpVerification->otp_hash
             )
         ) {
 
-            $recovery['attempts']++;
-
-            Cache::put(
-                $sessionKey,
-                $recovery,
-                now()->addSeconds(
-                    max(
-                        1,
-                        $recovery['expires_at'] -
-                            now()->timestamp
-                    )
-                )
-            );
-
-            $remaining =
-                self::MAX_OTP_ATTEMPTS -
-                $recovery['attempts'];
-
             return response()->json([
                 'message' =>
-                "Invalid verification code. {$remaining} attempt(s) remaining.",
+                'Invalid verification code.',
             ], 422);
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | OTP VALID
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | MARK OTP VERIFIED
+    |--------------------------------------------------------------------------
+    */
+
+        $otpVerification->update([
+            'verified_at' => now(),
+        ]);
 
         /*
-        | Invalidate OTP immediately.
-        */
-        Cache::forget(
-            $sessionKey
+    |--------------------------------------------------------------------------
+    | CREATE RESET TOKEN
+    |--------------------------------------------------------------------------
+    */
+
+        $resetToken = bin2hex(
+            random_bytes(32)
         );
 
         /*
-        |--------------------------------------------------------------------------
-        | CREATE ONE-TIME RESET TOKEN
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | STORE TEMPORARY RESET TOKEN
+    |--------------------------------------------------------------------------
+    |
+    | For now we will use cache.
+    |
+    | Token expires after 10 minutes.
+    |
+    */
 
-        $resetToken = Str::random(64);
-
-        Cache::put(
-            "password_reset_token:{$resetToken}",
-            [
-                'user_id' =>
-                $user->id,
-
-                'phone' =>
-                $user->phone,
-
-                'created_at' =>
-                now()->timestamp,
-            ],
+        cache()->put(
+            'password_reset:' . $resetToken,
+            $user->id,
             now()->addMinutes(10)
         );
 
+        /*
+    |--------------------------------------------------------------------------
+    | RESPONSE
+    |--------------------------------------------------------------------------
+    */
+
         return response()->json([
             'message' =>
-            'OTP verified successfully.',
+            'Verification code verified successfully.',
 
             'reset_token' =>
             $resetToken,
@@ -538,193 +919,12 @@ class AuthController extends Controller
             'user_id' =>
             $user->id,
 
-            'expires_in' =>
-            600,
-        ]);
+        ], 200);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | RESEND FORGOT PASSWORD OTP
-    |--------------------------------------------------------------------------
-    */
 
-    public function resendForgotPasswordOtp(
-        Request $request,
-        SmsService $smsService
-    ) {
-        $validated = $request->validate([
-            'user_id' => [
-                'required',
-                'integer',
-                'exists:users,id',
-            ],
-        ]);
-
-        $user = User::find(
-            $validated['user_id']
-        );
-
-        if (!$user) {
-            return response()->json([
-                'message' =>
-                'Invalid recovery request.',
-            ], 422);
-        }
-
-        $sessionKey =
-            "password_recovery:{$user->id}";
-
-        $recovery = Cache::get(
-            $sessionKey
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | NO SESSION
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$recovery) {
-            return response()->json([
-                'message' =>
-                'Your recovery session has expired. Please start again.',
-            ], 410);
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | MAX RESENDS
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            $recovery['resends'] >=
-            self::MAX_RESENDS
-        ) {
-            Cache::forget(
-                $sessionKey
-            );
-
-            return response()->json([
-                'message' =>
-                'Maximum resend attempts reached. Please start a new recovery request later.',
-            ], 429);
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | WAIT UNTIL CURRENT OTP EXPIRES
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            now()->timestamp <
-            $recovery['otp_expires_at']
-        ) {
-            $remaining =
-                $recovery['otp_expires_at'] -
-                now()->timestamp;
-
-            return response()->json([
-                'message' =>
-                'Please wait until the current verification code expires.',
-                'retry_after' =>
-                $remaining,
-            ], 429);
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | GENERATE NEW OTP
-        |--------------------------------------------------------------------------
-        */
-
-        $otp = $this->generateOtp();
-
-        $otpExpiresAt =
-            now()->addMinutes(
-                self::OTP_EXPIRATION
-            );
-
-        $recovery['otp'] =
-            $otp;
-
-        $recovery['otp_expires_at'] =
-            $otpExpiresAt->timestamp;
-
-        $recovery['attempts'] =
-            0;
-
-        $recovery['resends']++;
-
-        /*
-        |--------------------------------------------------------------------------
-        | KEEP RECOVERY SESSION ALIVE
-        |--------------------------------------------------------------------------
-        */
-
-        $remainingRecovery =
-            max(
-                1,
-                $recovery['expires_at'] -
-                    now()->timestamp
-            );
-
-        Cache::put(
-            $sessionKey,
-            $recovery,
-            now()->addSeconds(
-                $remainingRecovery
-            )
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | SEND NEW OTP
-        |--------------------------------------------------------------------------
-        */
-
-        $smsSent = $smsService->send(
-            $user->phone,
-            "Your new eDTS password recovery code is {$otp}. This code expires in 5 minutes."
-        );
-
-        if (!$smsSent) {
-            return response()->json([
-                'message' =>
-                'Unable to send the new verification code.',
-            ], 500);
-        }
-
-        return response()->json([
-            'message' =>
-            'A new verification code has been sent.',
-
-            'user_id' =>
-            $user->id,
-
-            'otp_expires_at' =>
-            $otpExpiresAt->timestamp,
-
-            'otp_expires_in' =>
-            self::OTP_EXPIRATION * 60,
-
-            'resends_remaining' =>
-            self::MAX_RESENDS -
-                $recovery['resends'],
-        ]);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | RESET PASSWORD
-    |--------------------------------------------------------------------------
-    */
-
-    public function resetPassword(
-        Request $request
-    ) {
+    public function resetPassword(Request $request)
+    {
         $validated = $request->validate([
             'reset_token' => [
                 'required',
@@ -737,43 +937,60 @@ class AuthController extends Controller
                 'min:8',
                 'confirmed',
             ],
+        ], [
+            'password.confirmed' =>
+            'Password confirmation does not match.',
         ]);
 
-        $tokenKey =
-            "password_reset_token:" .
+        /*
+    |--------------------------------------------------------------------------
+    | GET RESET TOKEN
+    |--------------------------------------------------------------------------
+    */
+
+        $cacheKey =
+            'password_reset:' .
             $validated['reset_token'];
 
-        $resetSession = Cache::get(
-            $tokenKey
+        $userId = cache()->get(
+            $cacheKey
         );
 
-        if (!$resetSession) {
-            return response()->json([
-                'message' =>
-                'Password reset session has expired.',
-            ], 410);
-        }
-
-        $user = User::find(
-            $resetSession['user_id']
-        );
-
-        if (!$user) {
-            Cache::forget(
-                $tokenKey
-            );
+        if (!$userId) {
 
             return response()->json([
                 'message' =>
-                'Invalid password reset request.',
+                'Password reset session has expired. Please request a new code.',
             ], 422);
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | UPDATE PASSWORD
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | FIND USER
+    |--------------------------------------------------------------------------
+    */
+
+        $user = User::find(
+            $userId
+        );
+
+        if (!$user) {
+
+            cache()->forget(
+                $cacheKey
+            );
+
+            return response()->json([
+                'message' =>
+                'Unable to reset this account.',
+            ], 404);
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | UPDATE PASSWORD
+    |--------------------------------------------------------------------------
+    */
 
         $user->update([
             'password' =>
@@ -783,37 +1000,46 @@ class AuthController extends Controller
         ]);
 
         /*
-        |--------------------------------------------------------------------------
-        | TOKEN CAN ONLY BE USED ONCE
-        |--------------------------------------------------------------------------
-        */
+    |--------------------------------------------------------------------------
+    | CONSUME RESET TOKEN
+    |--------------------------------------------------------------------------
+    */
 
-        Cache::forget(
-            $tokenKey
+        cache()->forget(
+            $cacheKey
         );
+
+        /*
+    |--------------------------------------------------------------------------
+    | OPTIONAL SECURITY
+    |--------------------------------------------------------------------------
+    |
+    | Remove all existing Sanctum tokens.
+    |
+    */
+
+        $user
+            ->tokens()
+            ->delete();
+
+        /*
+    |--------------------------------------------------------------------------
+    | RESPONSE
+    |--------------------------------------------------------------------------
+    */
 
         return response()->json([
             'message' =>
             'Password reset successfully.',
-        ]);
+        ], 200);
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | GENERATE OTP
-    |--------------------------------------------------------------------------
-    */
-
-    private function generateOtp(): string
+    public function logout(Request $request)
     {
-        return str_pad(
-            (string) random_int(
-                0,
-                999999
-            ),
-            6,
-            '0',
-            STR_PAD_LEFT
-        );
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'message' => 'Logged out successfully.',
+        ]);
     }
 }
