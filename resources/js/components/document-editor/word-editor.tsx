@@ -167,7 +167,14 @@ export default function WordEditor({
         },
 
         onUpdate: ({ editor }) => {
-            onChange(editor.getHTML());
+            const html = editor.getHTML();
+
+            console.log(
+                'eDTS TABLE HTML:',
+                html,
+            );
+
+            onChange(html);
         },
     });
 
