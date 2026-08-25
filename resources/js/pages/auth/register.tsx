@@ -1,6 +1,11 @@
 import { Head, useForm } from '@inertiajs/react';
 import axios from 'axios';
-import { ChevronDown, LoaderCircle } from 'lucide-react';
+import {
+    Building2,
+    ChevronDown,
+    LoaderCircle,
+    ShieldCheck,
+} from 'lucide-react';
 import { FormEventHandler, useEffect, useState } from 'react';
 
 import InputError from '@/components/input-error';
@@ -68,11 +73,11 @@ export default function Register() {
             } catch (error) {
                 console.error(
                     'Failed to load departments:',
-                    error
+                    error,
                 );
 
                 setGeneralError(
-                    'Unable to load departments. Please refresh the page and try again.'
+                    'Unable to load departments. Please refresh the page and try again.',
                 );
             } finally {
                 setLoadingDepartments(false);
@@ -96,56 +101,32 @@ export default function Register() {
         setGeneralError('');
 
         try {
-            const response = await axios.post(
-                '/api/register',
-                {
-                    name: data.name,
-                    phone: data.phone,
-                    department_id: Number(
-                        data.department_id
-                    ),
-                    password: data.password,
-                    password_confirmation:
-                        data.password_confirmation,
-                }
-            );
-
-            /*
-            |--------------------------------------------------------------------------
-            | REGISTRATION SUCCESSFUL
-            |--------------------------------------------------------------------------
-            */
+            const response = await axios.post('/api/register', {
+                name: data.name,
+                phone: data.phone,
+                department_id: Number(data.department_id),
+                password: data.password,
+                password_confirmation:
+                    data.password_confirmation,
+            });
 
             const userId = response.data.user_id;
             const phone = response.data.phone;
 
-            /*
-            | Store information temporarily for OTP page
-            */
-
             sessionStorage.setItem(
                 'otp_user_id',
-                String(userId)
+                String(userId),
             );
 
             sessionStorage.setItem(
                 'otp_phone',
-                phone
+                phone,
             );
 
-            /*
-            | Redirect to OTP verification
-            */
-
-            window.location.href = `/verify-otp?user_id=${userId}&phone=${encodeURIComponent(phone)}`;
+            window.location.href =
+                `/verify-otp?user_id=${userId}&phone=${encodeURIComponent(phone)}`;
 
         } catch (error: any) {
-            /*
-            |--------------------------------------------------------------------------
-            | VALIDATION ERRORS
-            |--------------------------------------------------------------------------
-            */
-
             if (
                 axios.isAxiosError(error) &&
                 error.response?.status === 422
@@ -170,32 +151,26 @@ export default function Register() {
                 } else {
                     setGeneralError(
                         error.response.data.message ||
-                            'Please check your information.'
+                            'Please check your information.',
                     );
                 }
 
                 return;
             }
 
-            /*
-            |--------------------------------------------------------------------------
-            | OTHER API ERROR
-            |--------------------------------------------------------------------------
-            */
-
             if (
                 axios.isAxiosError(error) &&
                 error.response?.data?.message
             ) {
                 setGeneralError(
-                    error.response.data.message
+                    error.response.data.message,
                 );
 
                 return;
             }
 
             setGeneralError(
-                'Something went wrong. Please try again.'
+                'Something went wrong. Please try again.',
             );
         } finally {
             setProcessing(false);
@@ -203,247 +178,364 @@ export default function Register() {
     };
 
     return (
-        <AuthLayout
-            title="Create an account"
-            description="Register your account with the Municipality of Estancia"
-        >
-            <Head title="Register | Municipality of Estancia" />
+        <>
+            <Head title="Create Account | Municipality of Estancia" />
 
-            <form
-                className="flex flex-col gap-6"
-                onSubmit={submit}
+            <AuthLayout
+                title=""
+                description=""
             >
-                <div className="grid gap-6">
+                <div className="w-full">
 
-                    {/* GENERAL ERROR */}
+                    {/* -------------------------------------------------- */}
+                    {/* GOVERNMENT HEADER */}
+                    {/* -------------------------------------------------- */}
 
-                    {generalError && (
-                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                            {generalError}
+                    <div className="mb-8 text-center">
+
+                        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-slate-200 bg-white p-2 shadow-sm">
+                            <img
+                                src="/images/estancia-logo.png"
+                                alt="Municipality of Estancia"
+                                className="h-full w-full object-contain"
+                            />
                         </div>
-                    )}
 
-                    {/* NAME */}
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="name">
-                            Full Name
-                        </Label>
-
-                        <Input
-                            id="name"
-                            type="text"
-                            required
-                            autoFocus
-                            tabIndex={1}
-                            autoComplete="name"
-                            value={data.name}
-                            onChange={(e) =>
-                                setData(
-                                    'name',
-                                    e.target.value
-                                )
-                            }
-                            disabled={processing}
-                            placeholder="Enter your full name"
-                        />
-
-                        <InputError
-                            message={errors.name}
-                        />
-                    </div>
-
-                    {/* PHONE */}
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="phone">
-                            Mobile Number
-                        </Label>
-
-                        <Input
-                            id="phone"
-                            type="tel"
-                            required
-                            tabIndex={2}
-                            autoComplete="tel"
-                            value={data.phone}
-                            onChange={(e) =>
-                                setData(
-                                    'phone',
-                                    e.target.value
-                                )
-                            }
-                            disabled={processing}
-                            placeholder="09XXXXXXXXX"
-                            maxLength={11}
-                        />
-
-                        <p className="text-xs text-muted-foreground">
-                            Enter your 11-digit mobile
-                            number starting with 09.
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                            Republic of the Philippines
                         </p>
 
-                        <InputError
-                            message={errors.phone}
-                        />
+                        <h1 className="mt-1 text-xl font-bold uppercase tracking-wide text-slate-900">
+                            Municipality of Estancia
+                        </h1>
+
+                        <p className="mt-1 text-sm text-slate-500">
+                            Province of Iloilo
+                        </p>
+
+                        <div className="mx-auto mt-5 h-px w-16 bg-blue-700" />
+
+                        <h2 className="mt-5 text-2xl font-bold tracking-tight text-slate-900">
+                            Create an Account
+                        </h2>
+
+                        <p className="mt-2 text-sm leading-6 text-slate-500">
+                            Register for access to the Electronic
+                            Document Tracking System.
+                        </p>
                     </div>
 
-                    {/* DEPARTMENT */}
+                    {/* -------------------------------------------------- */}
+                    {/* FORM CARD */}
+                    {/* -------------------------------------------------- */}
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="department_id">
-                            Department / Office
-                        </Label>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
 
-                        <div className="relative">
-                            <select
-                                id="department_id"
-                                required
-                                tabIndex={3}
-                                value={
-                                    data.department_id
-                                }
-                                onChange={(e) =>
-                                    setData(
-                                        'department_id',
-                                        e.target.value
-                                    )
-                                }
-                                disabled={
-                                    processing ||
-                                    loadingDepartments
-                                }
-                                className="border-input bg-background ring-offset-background focus-visible:ring-ring flex h-10 w-full appearance-none rounded-md border px-3 py-2 pr-10 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                <option value="">
-                                    {loadingDepartments
-                                        ? 'Loading departments...'
-                                        : 'Select your department'}
-                                </option>
+                        {/* Account Information */}
+                        <div className="mb-6 flex items-center gap-3 border-b border-slate-100 pb-4">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                                <Building2 className="h-5 w-5" />
+                            </div>
 
-                                {departments.map(
-                                    (department) => (
-                                        <option
-                                            key={
-                                                department.id
-                                            }
-                                            value={
-                                                department.id
-                                            }
-                                        >
-                                            {
-                                                department.name
-                                            }
-                                        </option>
-                                    )
-                                )}
-                            </select>
+                            <div>
+                                <h3 className="text-sm font-bold text-slate-900">
+                                    Account Information
+                                </h3>
 
-                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" />
+                                <p className="text-xs text-slate-500">
+                                    Enter your municipal account details
+                                </p>
+                            </div>
                         </div>
 
-                        <InputError
-                            message={
-                                errors.department_id
-                            }
-                        />
+                        <form
+                            className="space-y-5"
+                            onSubmit={submit}
+                        >
+
+                            {/* GENERAL ERROR */}
+
+                            {generalError && (
+                                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-5 text-red-700">
+                                    {generalError}
+                                </div>
+                            )}
+
+                            {/* NAME */}
+
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="name"
+                                    className="text-sm font-semibold text-slate-700"
+                                >
+                                    Full Name
+                                </Label>
+
+                                <Input
+                                    id="name"
+                                    type="text"
+                                    required
+                                    autoFocus
+                                    tabIndex={1}
+                                    autoComplete="name"
+                                    value={data.name}
+                                    onChange={(e) =>
+                                        setData(
+                                            'name',
+                                            e.target.value,
+                                        )
+                                    }
+                                    disabled={processing}
+                                    placeholder="Enter your full name"
+                                    className="h-11 rounded-lg"
+                                />
+
+                                <InputError
+                                    message={errors.name}
+                                />
+                            </div>
+
+                            {/* PHONE */}
+
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="phone"
+                                    className="text-sm font-semibold text-slate-700"
+                                >
+                                    Mobile Number
+                                </Label>
+
+                                <Input
+                                    id="phone"
+                                    type="tel"
+                                    required
+                                    tabIndex={2}
+                                    autoComplete="tel"
+                                    value={data.phone}
+                                    onChange={(e) =>
+                                        setData(
+                                            'phone',
+                                            e.target.value,
+                                        )
+                                    }
+                                    disabled={processing}
+                                    placeholder="09XXXXXXXXX"
+                                    maxLength={11}
+                                    className="h-11 rounded-lg"
+                                />
+
+                                <p className="text-xs leading-5 text-slate-500">
+                                    An OTP will be sent to this
+                                    number for verification.
+                                </p>
+
+                                <InputError
+                                    message={errors.phone}
+                                />
+                            </div>
+
+                            {/* DEPARTMENT */}
+
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="department_id"
+                                    className="text-sm font-semibold text-slate-700"
+                                >
+                                    Department / Office
+                                </Label>
+
+                                <div className="relative">
+                                    <select
+                                        id="department_id"
+                                        required
+                                        tabIndex={3}
+                                        value={
+                                            data.department_id
+                                        }
+                                        onChange={(e) =>
+                                            setData(
+                                                'department_id',
+                                                e.target.value,
+                                            )
+                                        }
+                                        disabled={
+                                            processing ||
+                                            loadingDepartments
+                                        }
+                                        className="h-11 w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 pr-10 text-sm text-slate-700 shadow-sm outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:opacity-60"
+                                    >
+                                        <option value="">
+                                            {loadingDepartments
+                                                ? 'Loading departments...'
+                                                : 'Select your department / office'}
+                                        </option>
+
+                                        {departments.map(
+                                            (department) => (
+                                                <option
+                                                    key={
+                                                        department.id
+                                                    }
+                                                    value={
+                                                        department.id
+                                                    }
+                                                >
+                                                    {
+                                                        department.name
+                                                    }
+                                                </option>
+                                            ),
+                                        )}
+                                    </select>
+
+                                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                </div>
+
+                                <InputError
+                                    message={
+                                        errors.department_id
+                                    }
+                                />
+                            </div>
+
+                            {/* PASSWORD */}
+
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="password"
+                                    className="text-sm font-semibold text-slate-700"
+                                >
+                                    Password
+                                </Label>
+
+                                <Input
+                                    id="password"
+                                    type="password"
+                                    required
+                                    tabIndex={4}
+                                    autoComplete="new-password"
+                                    value={data.password}
+                                    onChange={(e) =>
+                                        setData(
+                                            'password',
+                                            e.target.value,
+                                        )
+                                    }
+                                    disabled={processing}
+                                    placeholder="Create a password"
+                                    className="h-11 rounded-lg"
+                                />
+
+                                <InputError
+                                    message={errors.password}
+                                />
+                            </div>
+
+                            {/* CONFIRM PASSWORD */}
+
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="password_confirmation"
+                                    className="text-sm font-semibold text-slate-700"
+                                >
+                                    Confirm Password
+                                </Label>
+
+                                <Input
+                                    id="password_confirmation"
+                                    type="password"
+                                    required
+                                    tabIndex={5}
+                                    autoComplete="new-password"
+                                    value={
+                                        data.password_confirmation
+                                    }
+                                    onChange={(e) =>
+                                        setData(
+                                            'password_confirmation',
+                                            e.target.value,
+                                        )
+                                    }
+                                    disabled={processing}
+                                    placeholder="Confirm your password"
+                                    className="h-11 rounded-lg"
+                                />
+
+                                <InputError
+                                    message={
+                                        errors.password_confirmation
+                                    }
+                                />
+                            </div>
+
+                            {/* SECURITY NOTICE */}
+
+                            <div className="flex gap-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
+                                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
+
+                                <div>
+                                    <p className="text-sm font-semibold text-blue-900">
+                                        Account Verification
+                                    </p>
+
+                                    <p className="mt-1 text-xs leading-5 text-blue-700">
+                                        After registration, an OTP
+                                        will be sent to your mobile
+                                        number to verify your account.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* SUBMIT */}
+
+                            <Button
+                                type="submit"
+                                className="h-11 w-full rounded-lg bg-blue-700 text-sm font-semibold shadow-sm transition hover:bg-blue-800"
+                                tabIndex={6}
+                                disabled={
+                                    processing ||
+                                    loadingDepartments ||
+                                    departments.length === 0
+                                }
+                            >
+                                {processing && (
+                                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                                )}
+
+                                {processing
+                                    ? 'Creating account...'
+                                    : 'Create Account'}
+                            </Button>
+                        </form>
                     </div>
 
-                    {/* PASSWORD */}
+                    {/* LOGIN */}
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="password">
-                            Password
-                        </Label>
+                    <div className="mt-6 text-center text-sm text-slate-500">
+                        Already have an account?{' '}
 
-                        <Input
-                            id="password"
-                            type="password"
-                            required
-                            tabIndex={4}
-                            autoComplete="new-password"
-                            value={data.password}
-                            onChange={(e) =>
-                                setData(
-                                    'password',
-                                    e.target.value
-                                )
-                            }
-                            disabled={processing}
-                            placeholder="Create a password"
-                        />
-
-                        <InputError
-                            message={errors.password}
-                        />
+                        <TextLink
+                            href={route('login')}
+                            tabIndex={7}
+                            className="font-semibold text-blue-700 hover:text-blue-800"
+                        >
+                            Sign in
+                        </TextLink>
                     </div>
 
-                    {/* CONFIRM PASSWORD */}
+                    {/* FOOTER */}
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="password_confirmation">
-                            Confirm Password
-                        </Label>
+                    <div className="mt-8 text-center">
+                        <p className="text-[11px] text-slate-400">
+                            Municipality of Estancia
+                        </p>
 
-                        <Input
-                            id="password_confirmation"
-                            type="password"
-                            required
-                            tabIndex={5}
-                            autoComplete="new-password"
-                            value={
-                                data.password_confirmation
-                            }
-                            onChange={(e) =>
-                                setData(
-                                    'password_confirmation',
-                                    e.target.value
-                                )
-                            }
-                            disabled={processing}
-                            placeholder="Confirm your password"
-                        />
-
-                        <InputError
-                            message={
-                                errors.password_confirmation
-                            }
-                        />
+                        <p className="mt-1 text-[11px] text-slate-400">
+                            Electronic Document Tracking System
+                        </p>
                     </div>
-
-                    {/* SUBMIT */}
-
-                    <Button
-                        type="submit"
-                        className="mt-2 w-full"
-                        tabIndex={6}
-                        disabled={
-                            processing ||
-                            loadingDepartments ||
-                            departments.length === 0
-                        }
-                    >
-                        {processing && (
-                            <LoaderCircle className="h-4 w-4 animate-spin" />
-                        )}
-
-                        {processing
-                            ? 'Creating account...'
-                            : 'Create account'}
-                    </Button>
                 </div>
-
-                <div className="text-muted-foreground text-center text-sm">
-                    Already have an account?{' '}
-
-                    <TextLink
-                        href={route('login')}
-                        tabIndex={7}
-                    >
-                        Log in
-                    </TextLink>
-                </div>
-            </form>
-        </AuthLayout>
+            </AuthLayout>
+        </>
     );
 }
