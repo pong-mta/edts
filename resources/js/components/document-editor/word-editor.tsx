@@ -931,6 +931,20 @@ export default function WordEditor({
                                 </span>
                             </ToolbarButton>
                             <ToolbarButton
+                                title="Split cell"
+                                onClick={() =>
+                                    editor
+                                        .chain()
+                                        .focus()
+                                        .splitCell()
+                                        .run()
+                                }
+                            >
+                                <span className="text-xs font-bold">
+                                    SC
+                                </span>
+                            </ToolbarButton>
+                            <ToolbarButton
                                 title="Delete table"
                                 onClick={() =>
                                     editor
