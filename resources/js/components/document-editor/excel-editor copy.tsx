@@ -64,36 +64,27 @@ type ExcelMerge = {
 type ExcelImage = {
     id: string;
     src: string;
-
     row: number;
     column: number;
-
     width: number;
     height: number;
-
     offsetX?: number;
     offsetY?: number;
 };
 
 type ExcelSheet = {
     name: string;
-
     cells: Cell[][];
-
     columnWidths?: number[];
     rowHeights?: number[];
-
     mergedCells?: ExcelMerge[];
-
     images?: ExcelImage[];
 };
 
 type ExcelWorkbook = {
     version?: number;
     type?: string;
-
     sheets: ExcelSheet[];
-
     activeSheet?: number;
 };
 
@@ -106,12 +97,10 @@ const DEFAULT_ROWS = 50;
 const DEFAULT_COLUMNS = 26;
 
 const DEFAULT_COLUMN_WIDTH = 100;
-
 const MIN_COLUMN_WIDTH = 40;
 const MAX_COLUMN_WIDTH = 500;
 
 const DEFAULT_ROW_HEIGHT = 28;
-
 const MIN_ROW_HEIGHT = 18;
 const MAX_ROW_HEIGHT = 200;
 
@@ -119,14 +108,10 @@ const ROW_HEADER_WIDTH = 48;
 
 const createEmptyRows = (): Cell[][] =>
     Array.from(
-        {
-            length: DEFAULT_ROWS,
-        },
+        { length: DEFAULT_ROWS },
         () =>
             Array.from(
-                {
-                    length: DEFAULT_COLUMNS,
-                },
+                { length: DEFAULT_COLUMNS },
                 () => ({
                     value: '',
                 }),
@@ -135,17 +120,13 @@ const createEmptyRows = (): Cell[][] =>
 
 const createDefaultColumnWidths = (): number[] =>
     Array.from(
-        {
-            length: DEFAULT_COLUMNS,
-        },
+        { length: DEFAULT_COLUMNS },
         () => DEFAULT_COLUMN_WIDTH,
     );
 
 const createDefaultRowHeights = (): number[] =>
     Array.from(
-        {
-            length: DEFAULT_ROWS,
-        },
+        { length: DEFAULT_ROWS },
         () => DEFAULT_ROW_HEIGHT,
     );
 
@@ -155,7 +136,6 @@ const cloneRows = (
     rows.map((row) =>
         row.map((cell) => ({
             ...cell,
-
             border: cell.border
                 ? {
                       ...cell.border,
@@ -168,7 +148,6 @@ const columnName = (
     index: number,
 ) => {
     let name = '';
-
     let number = index + 1;
 
     while (number > 0) {
@@ -197,21 +176,14 @@ const normalizePosition = (
         0,
         Math.min(
             position.row,
-            Math.max(
-                rowsCount - 1,
-                0,
-            ),
+            Math.max(rowsCount - 1, 0),
         ),
     ),
-
     col: Math.max(
         0,
         Math.min(
             position.col,
-            Math.max(
-                columnsCount - 1,
-                0,
-            ),
+            Math.max(columnsCount - 1, 0),
         ),
     ),
 });
@@ -286,122 +258,70 @@ export default function ExcelEditor({
             null,
         );
 
-    const [
-        activeSheetIndex,
-        setActiveSheetIndex,
-    ] = useState(0);
+    const [activeSheetIndex, setActiveSheetIndex] =
+        useState(0);
 
     const [rows, setRows] =
         useState<Cell[][]>(
             createEmptyRows,
         );
 
-    const [
-        columnWidths,
-        setColumnWidths,
-    ] = useState<number[]>(
-        createDefaultColumnWidths,
-    );
+    const [columnWidths, setColumnWidths] =
+        useState<number[]>(
+            createDefaultColumnWidths,
+        );
 
-    const [
-        rowHeights,
-        setRowHeights,
-    ] = useState<number[]>(
-        createDefaultRowHeights,
-    );
+    const [rowHeights, setRowHeights] =
+        useState<number[]>(
+            createDefaultRowHeights,
+        );
 
-    const [
-        mergedCells,
-        setMergedCells,
-    ] = useState<ExcelMerge[]>([]);
+    const [mergedCells, setMergedCells] =
+        useState<ExcelMerge[]>([]);
 
-    /*
-    |--------------------------------------------------------------------------
-    | IMPORTANT
-    |--------------------------------------------------------------------------
-    | Imported Excel images live on the sheet.
-    |
-    | The importer already creates:
-    |
-    | sheet.images = [...]
-    |
-    | We keep those images in state and render them as an absolute layer
-    | above the spreadsheet table.
-    |--------------------------------------------------------------------------
-    */
+    const [selectedCell, setSelectedCell] =
+        useState<CellPosition>({
+            row: 0,
+            col: 0,
+        });
 
-    const [images, setImages] =
-        useState<ExcelImage[]>([]);
+    const [selectionRange, setSelectionRange] =
+        useState<CellRange | null>(
+            null,
+        );
 
-    const [
-        selectedCell,
-        setSelectedCell,
-    ] = useState<CellPosition>({
-        row: 0,
-        col: 0,
-    });
+    const [editingCell, setEditingCell] =
+        useState<CellPosition | null>(
+            null,
+        );
 
-    const [
-        selectionRange,
-        setSelectionRange,
-    ] = useState<CellRange | null>(
-        null,
-    );
+    const [editingValue, setEditingValue] =
+        useState('');
 
-    const [
-        editingCell,
-        setEditingCell,
-    ] = useState<CellPosition | null>(
-        null,
-    );
+    const [formulaValue, setFormulaValue] =
+        useState('');
 
-    const [
-        editingValue,
-        setEditingValue,
-    ] = useState('');
+    const [resizingColumn, setResizingColumn] =
+        useState<number | null>(null);
 
-    const [
-        formulaValue,
-        setFormulaValue,
-    ] = useState('');
+    const [resizingRow, setResizingRow] =
+        useState<number | null>(null);
 
-    const [
-        resizingColumn,
-        setResizingColumn,
-    ] = useState<number | null>(
-        null,
-    );
+    const [resizeStartX, setResizeStartX] =
+        useState(0);
 
-    const [
-        resizingRow,
-        setResizingRow,
-    ] = useState<number | null>(
-        null,
-    );
+    const [resizeStartY, setResizeStartY] =
+        useState(0);
 
-    const [
-        resizeStartX,
-        setResizeStartX,
-    ] = useState(0);
+    const [resizeStartWidth, setResizeStartWidth] =
+        useState(
+            DEFAULT_COLUMN_WIDTH,
+        );
 
-    const [
-        resizeStartY,
-        setResizeStartY,
-    ] = useState(0);
-
-    const [
-        resizeStartWidth,
-        setResizeStartWidth,
-    ] = useState(
-        DEFAULT_COLUMN_WIDTH,
-    );
-
-    const [
-        resizeStartHeight,
-        setResizeStartHeight,
-    ] = useState(
-        DEFAULT_ROW_HEIGHT,
-    );
+    const [resizeStartHeight, setResizeStartHeight] =
+        useState(
+            DEFAULT_ROW_HEIGHT,
+        );
 
     const inputRef =
         useRef<HTMLInputElement>(null);
@@ -419,88 +339,12 @@ export default function ExcelEditor({
         return (
             ROW_HEADER_WIDTH +
             columnWidths.reduce(
-                (
-                    total,
-                    width,
-                ) =>
+                (total, width) =>
                     total + width,
                 0,
             )
         );
     }, [columnWidths]);
-
-    /*
-    |--------------------------------------------------------------------------
-    | TOTAL GRID HEIGHT
-    |--------------------------------------------------------------------------
-    */
-
-    const tableHeight = useMemo(() => {
-        return rowHeights.reduce(
-            (
-                total,
-                height,
-            ) =>
-                total + height,
-            0,
-        );
-    }, [rowHeights]);
-
-    /*
-    |--------------------------------------------------------------------------
-    | IMAGE POSITION
-    |--------------------------------------------------------------------------
-    |
-    | Excel image coordinates:
-    |
-    | row
-    | column
-    | offsetX
-    | offsetY
-    |
-    | Convert them into CSS absolute coordinates.
-    |--------------------------------------------------------------------------
-    */
-
-    const getImagePosition = (
-        image: ExcelImage,
-    ) => {
-        let left =
-            ROW_HEADER_WIDTH;
-
-        for (
-            let col = 0;
-            col < image.column;
-            col++
-        ) {
-            left +=
-                columnWidths[col] ??
-                DEFAULT_COLUMN_WIDTH;
-        }
-
-        left +=
-            image.offsetX ?? 0;
-
-        let top = 0;
-
-        for (
-            let row = 0;
-            row < image.row;
-            row++
-        ) {
-            top +=
-                rowHeights[row] ??
-                DEFAULT_ROW_HEIGHT;
-        }
-
-        top +=
-            image.offsetY ?? 0;
-
-        return {
-            left,
-            top,
-        };
-    };
 
     /*
     |--------------------------------------------------------------------------
@@ -511,7 +355,6 @@ export default function ExcelEditor({
     useEffect(() => {
         if (!content) {
             setWorkbook(null);
-
             setActiveSheetIndex(0);
 
             setRows(
@@ -527,8 +370,6 @@ export default function ExcelEditor({
             );
 
             setMergedCells([]);
-
-            setImages([]);
 
             return;
         }
@@ -556,8 +397,8 @@ export default function ExcelEditor({
                         Math.min(
                             parsed.activeSheet ??
                                 0,
-                            parsed.sheets
-                                .length - 1,
+                            parsed.sheets.length -
+                                1,
                         ),
                     );
 
@@ -598,8 +439,6 @@ export default function ExcelEditor({
             );
 
             setMergedCells([]);
-
-            setImages([]);
         }
     }, [content]);
 
@@ -640,15 +479,15 @@ export default function ExcelEditor({
             sourceRowCount,
         );
 
-        const columnCount =
-            Math.max(
-                DEFAULT_COLUMNS,
-                sourceColumnCount,
-            );
+        const columnCount = Math.max(
+            DEFAULT_COLUMNS,
+            sourceColumnCount,
+        );
 
         /*
         |--------------------------------------------------------------------------
-        | PRESERVE COMPLETE CELL OBJECT
+        | IMPORTANT:
+        | PRESERVE THE COMPLETE CELL OBJECT.
         |--------------------------------------------------------------------------
         */
 
@@ -657,18 +496,13 @@ export default function ExcelEditor({
                 {
                     length: rowCount,
                 },
-                (
-                    _,
-                    rowIndex,
-                ) =>
+                (_, rowIndex) =>
                     Array.from(
                         {
-                            length: columnCount,
+                            length:
+                                columnCount,
                         },
-                        (
-                            _,
-                            colIndex,
-                        ) => {
+                        (_, colIndex) => {
                             const cell =
                                 sourceRows[
                                     rowIndex
@@ -708,19 +542,17 @@ export default function ExcelEditor({
 
         /*
         |--------------------------------------------------------------------------
-        | COLUMN WIDTHS
+        | PRESERVE IMPORTED COLUMN WIDTHS
         |--------------------------------------------------------------------------
         */
 
         const widths =
             Array.from(
                 {
-                    length: columnCount,
+                    length:
+                        columnCount,
                 },
-                (
-                    _,
-                    index,
-                ) => {
+                (_, index) => {
                     const importedWidth =
                         sheet
                             .columnWidths?.[
@@ -729,7 +561,7 @@ export default function ExcelEditor({
 
                     if (
                         typeof importedWidth ===
-                            'number' &&
+                        'number' &&
                         Number.isFinite(
                             importedWidth,
                         )
@@ -753,19 +585,17 @@ export default function ExcelEditor({
 
         /*
         |--------------------------------------------------------------------------
-        | ROW HEIGHTS
+        | PRESERVE IMPORTED ROW HEIGHTS
         |--------------------------------------------------------------------------
         */
 
         const heights =
             Array.from(
                 {
-                    length: rowCount,
+                    length:
+                        rowCount,
                 },
-                (
-                    _,
-                    index,
-                ) => {
+                (_, index) => {
                     const importedHeight =
                         sheet
                             .rowHeights?.[
@@ -774,7 +604,7 @@ export default function ExcelEditor({
 
                     if (
                         typeof importedHeight ===
-                            'number' &&
+                        'number' &&
                         Number.isFinite(
                             importedHeight,
                         )
@@ -809,40 +639,6 @@ export default function ExcelEditor({
                 ? sheet.mergedCells
                 : [],
         );
-
-        /*
-        |--------------------------------------------------------------------------
-        | IMAGES
-        |--------------------------------------------------------------------------
-        |
-        | THIS IS THE IMPORTANT FIX.
-        |
-        | The importer successfully extracted the image.
-        | We now actually load it into the editor.
-        |--------------------------------------------------------------------------
-        */
-
-        const importedImages =
-            Array.isArray(
-                sheet.images,
-            )
-                ? sheet.images
-                : [];
-
-        console.log(
-            `${sheet.name}: loading images`,
-            importedImages,
-        );
-
-        setImages(
-            importedImages,
-        );
-
-        /*
-        |--------------------------------------------------------------------------
-        | RESET SELECTION
-        |--------------------------------------------------------------------------
-        */
 
         setSelectedCell({
             row: 0,
@@ -900,15 +696,6 @@ export default function ExcelEditor({
 
                             mergedCells:
                                 mergedCells,
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | PRESERVE IMAGES
-                            |--------------------------------------------------------------------------
-                            */
-
-                            images:
-                                images,
                         };
                     },
                 );
@@ -988,9 +775,7 @@ export default function ExcelEditor({
                 }),
             );
         } else {
-            setSelectionRange(
-                null,
-            );
+            setSelectionRange(null);
         }
 
         setEditingCell(null);
@@ -1046,9 +831,7 @@ export default function ExcelEditor({
             normalized,
         );
 
-        setSelectionRange(
-            null,
-        );
+        setSelectionRange(null);
 
         setEditingCell(
             normalized,
@@ -1153,9 +936,7 @@ export default function ExcelEditor({
 
     const cancelEditing =
         () => {
-            setEditingCell(
-                null,
-            );
+            setEditingCell(null);
 
             setEditingValue(
                 rows[
@@ -1249,6 +1030,11 @@ export default function ExcelEditor({
                     ][
                         col
                     ].value = '';
+
+                    /*
+                    Preserve formatting.
+                    Only remove the content.
+                    */
                 }
             }
 
@@ -1309,10 +1095,7 @@ export default function ExcelEditor({
                         minRow +
                         1,
                 },
-                (
-                    _,
-                    rowOffset,
-                ) =>
+                (_, rowOffset) =>
                     Array.from(
                         {
                             length:
@@ -1320,10 +1103,7 @@ export default function ExcelEditor({
                                 minCol +
                                 1,
                         },
-                        (
-                            _,
-                            colOffset,
-                        ) =>
+                        (_, colOffset) =>
                             rows[
                                 minRow +
                                     rowOffset
@@ -1401,6 +1181,11 @@ export default function ExcelEditor({
                             return;
                         }
 
+                        /*
+                        Only replace value.
+                        Keep target formatting.
+                        */
+
                         nextRows[
                             targetRow
                         ][
@@ -1453,6 +1238,7 @@ export default function ExcelEditor({
                     selectedCell.col +
                         pastedColumns -
                         1,
+
                     nextRows[0]
                         .length -
                         1,
@@ -1616,7 +1402,6 @@ export default function ExcelEditor({
         workbook,
         activeSheetIndex,
         mergedCells,
-        images,
     ]);
 
     /*
@@ -1718,7 +1503,6 @@ export default function ExcelEditor({
         workbook,
         activeSheetIndex,
         mergedCells,
-        images,
     ]);
 
     /*
@@ -1921,9 +1705,7 @@ export default function ExcelEditor({
                     }),
                 );
             } else {
-                setSelectionRange(
-                    null,
-                );
+                setSelectionRange(null);
             }
 
             setFormulaValue(
@@ -2020,9 +1802,7 @@ export default function ExcelEditor({
                 }),
             );
         } else {
-            setSelectionRange(
-                null,
-            );
+            setSelectionRange(null);
         }
 
         setSelectedCell(
@@ -2346,45 +2126,53 @@ export default function ExcelEditor({
                 }
                 className="max-h-[700px] overflow-auto outline-none"
             >
-                {/*
-                |--------------------------------------------------------------------------
-                | IMPORTANT IMAGE CONTAINER
-                |--------------------------------------------------------------------------
-                |
-                | The table and images share the same coordinate system.
-                |
-                | Images are rendered above the table.
-                |--------------------------------------------------------------------------
-                */}
-
-                <div
-                    className="relative"
+                <table
+                    className="border-collapse text-sm"
                     style={{
+                        tableLayout:
+                            'fixed',
+
                         width:
                             `${tableWidth}px`,
 
                         minWidth:
                             `${tableWidth}px`,
-
-                        minHeight:
-                            `${tableHeight}px`,
                     }}
                 >
-                    <table
-                        className="border-collapse text-sm"
-                        style={{
-                            tableLayout:
-                                'fixed',
+                    <colgroup>
+                        <col
+                            style={{
+                                width: `${ROW_HEADER_WIDTH}px`,
+                                minWidth: `${ROW_HEADER_WIDTH}px`,
+                                maxWidth: `${ROW_HEADER_WIDTH}px`,
+                            }}
+                        />
 
-                            width:
-                                `${tableWidth}px`,
+                        {columnWidths.map(
+                            (
+                                width,
+                                col,
+                            ) => (
+                                <col
+                                    key={
+                                        col
+                                    }
+                                    style={{
+                                        width: `${width}px`,
+                                        minWidth: `${width}px`,
+                                        maxWidth: `${width}px`,
+                                    }}
+                                />
+                            ),
+                        )}
+                    </colgroup>
 
-                            minWidth:
-                                `${tableWidth}px`,
-                        }}
-                    >
-                        <colgroup>
-                            <col
+                    <thead>
+                        <tr>
+                            {/* CORNER */}
+
+                            <th
+                                className="sticky left-0 top-0 z-50 h-8 border border-slate-300 bg-slate-100"
                                 style={{
                                     width: `${ROW_HEADER_WIDTH}px`,
                                     minWidth: `${ROW_HEADER_WIDTH}px`,
@@ -2392,608 +2180,500 @@ export default function ExcelEditor({
                                 }}
                             />
 
+                            {/* COLUMN HEADERS */}
+
                             {columnWidths.map(
                                 (
                                     width,
                                     col,
                                 ) => (
-                                    <col
+                                    <th
                                         key={
                                             col
                                         }
+                                        onClick={() =>
+                                            handleColumnHeaderClick(
+                                                col,
+                                            )
+                                        }
+                                        className="group sticky top-0 z-40 h-8 select-none border border-slate-300 bg-slate-100 px-2 text-center text-xs font-semibold text-slate-600"
                                         style={{
                                             width: `${width}px`,
                                             minWidth: `${width}px`,
                                             maxWidth: `${width}px`,
                                         }}
-                                    />
-                                ),
-                            )}
-                        </colgroup>
+                                    >
+                                        <div className="relative flex h-full w-full items-center justify-center">
 
-                        <thead>
-                            <tr>
-
-                                {/* CORNER */}
-
-                                <th
-                                    className="sticky left-0 top-0 z-50 h-8 border border-slate-300 bg-slate-100"
-                                    style={{
-                                        width: `${ROW_HEADER_WIDTH}px`,
-                                        minWidth: `${ROW_HEADER_WIDTH}px`,
-                                        maxWidth: `${ROW_HEADER_WIDTH}px`,
-                                    }}
-                                />
-
-                                {/* COLUMN HEADERS */}
-
-                                {columnWidths.map(
-                                    (
-                                        width,
-                                        col,
-                                    ) => (
-                                        <th
-                                            key={
-                                                col
-                                            }
-                                            onClick={() =>
-                                                handleColumnHeaderClick(
+                                            {
+                                                columnName(
                                                     col,
                                                 )
                                             }
-                                            className="group sticky top-0 z-40 h-8 select-none border border-slate-300 bg-slate-100 px-2 text-center text-xs font-semibold text-slate-600"
-                                            style={{
-                                                width: `${width}px`,
-                                                minWidth: `${width}px`,
-                                                maxWidth: `${width}px`,
-                                            }}
-                                        >
-                                            <div className="relative flex h-full w-full items-center justify-center">
 
-                                                {
-                                                    columnName(
+                                            <div
+                                                onMouseDown={(
+                                                    event,
+                                                ) =>
+                                                    startColumnResize(
+                                                        event,
                                                         col,
                                                     )
                                                 }
+                                                onClick={(
+                                                    event,
+                                                ) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+                                                }}
+                                                className="absolute right-[-4px] top-0 z-[60] h-full w-[8px] cursor-col-resize"
+                                                title="Resize column"
+                                            />
+                                        </div>
+                                    </th>
+                                ),
+                            )}
+                        </tr>
+                    </thead>
 
-                                                <div
+                    <tbody>
+                        {rows.map(
+                            (
+                                rowData,
+                                row,
+                            ) => (
+                                <tr
+                                    key={row}
+                                    style={{
+                                        height:
+                                            `${rowHeights[row] ?? DEFAULT_ROW_HEIGHT}px`,
+                                    }}
+                                >
+                                    {/* ROW HEADER */}
+
+                                    <th
+                                        onClick={() =>
+                                            handleRowHeaderClick(
+                                                row,
+                                            )
+                                        }
+                                        className="group sticky left-0 z-30 cursor-pointer select-none border border-slate-300 bg-slate-100 text-center text-xs font-medium text-slate-500"
+                                        style={{
+                                            width: `${ROW_HEADER_WIDTH}px`,
+                                            minWidth: `${ROW_HEADER_WIDTH}px`,
+                                            maxWidth: `${ROW_HEADER_WIDTH}px`,
+                                            height: `${rowHeights[row] ?? DEFAULT_ROW_HEIGHT}px`,
+                                        }}
+                                    >
+                                        <div className="relative flex h-full items-center justify-center">
+
+                                            {
+                                                row +
+                                                1
+                                            }
+
+                                            <div
+                                                onMouseDown={(
+                                                    event,
+                                                ) =>
+                                                    startRowResize(
+                                                        event,
+                                                        row,
+                                                    )
+                                                }
+                                                onClick={(
+                                                    event,
+                                                ) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+                                                }}
+                                                className="absolute bottom-[-4px] left-0 z-[60] h-[8px] w-full cursor-row-resize"
+                                                title="Resize row"
+                                            />
+                                        </div>
+                                    </th>
+
+                                    {rowData.map(
+                                        (
+                                            cell,
+                                            col,
+                                        ) => {
+                                            const position =
+                                                {
+                                                    row,
+                                                    col,
+                                                };
+
+                                            const selected =
+                                                isSameCell(
+                                                    selectedCell,
+                                                    position,
+                                                );
+
+                                            const inRange =
+                                                isCellInRange(
+                                                    position,
+                                                    selectionRange,
+                                                );
+
+                                            const editing =
+                                                isSameCell(
+                                                    editingCell,
+                                                    position,
+                                                );
+
+                                            const merge =
+                                                getMergeForCell(
+                                                    row,
+                                                    col,
+                                                );
+
+                                            const mergeStart =
+                                                isMergeStart(
+                                                    row,
+                                                    col,
+                                                );
+
+                                            const hiddenByMerge =
+                                                isInsideMergeButNotStart(
+                                                    row,
+                                                    col,
+                                                );
+
+                                            if (
+                                                hiddenByMerge
+                                            ) {
+                                                return null;
+                                            }
+
+                                            const rowSpan =
+                                                mergeStart &&
+                                                merge
+                                                    ? merge.endRow -
+                                                      merge.startRow +
+                                                      1
+                                                    : undefined;
+
+                                            const colSpan =
+                                                mergeStart &&
+                                                merge
+                                                    ? merge.endColumn -
+                                                      merge.startColumn +
+                                                      1
+                                                    : undefined;
+
+                                            /*
+                                            Calculate the actual
+                                            width of merged cells.
+                                            */
+
+                                            const mergedWidth =
+                                                mergeStart &&
+                                                merge
+                                                    ? columnWidths
+                                                          .slice(
+                                                              merge.startColumn,
+                                                              merge.endColumn +
+                                                                  1,
+                                                          )
+                                                          .reduce(
+                                                              (
+                                                                  total,
+                                                                  width,
+                                                              ) =>
+                                                                  total +
+                                                                  width,
+                                                              0,
+                                                          )
+                                                    : undefined;
+
+                                            return (
+                                                <td
+                                                    key={
+                                                        col
+                                                    }
+                                                    rowSpan={
+                                                        rowSpan
+                                                    }
+                                                    colSpan={
+                                                        colSpan
+                                                    }
                                                     onMouseDown={(
                                                         event,
                                                     ) =>
-                                                        startColumnResize(
+                                                        handleCellMouseDown(
                                                             event,
+                                                            row,
                                                             col,
                                                         )
                                                     }
-                                                    onClick={(
-                                                        event,
-                                                    ) => {
-                                                        event.preventDefault();
-                                                        event.stopPropagation();
-                                                    }}
-                                                    className="absolute right-[-4px] top-0 z-[60] h-full w-[8px] cursor-col-resize"
-                                                    title="Resize column"
-                                                />
-                                            </div>
-                                        </th>
-                                    ),
-                                )}
-                            </tr>
-                        </thead>
-
-                        <tbody>
-                            {rows.map(
-                                (
-                                    rowData,
-                                    row,
-                                ) => (
-                                    <tr
-                                        key={
-                                            row
-                                        }
-                                        style={{
-                                            height:
-                                                `${rowHeights[row] ?? DEFAULT_ROW_HEIGHT}px`,
-                                        }}
-                                    >
-
-                                        {/* ROW HEADER */}
-
-                                        <th
-                                            onClick={() =>
-                                                handleRowHeaderClick(
-                                                    row,
-                                                )
-                                            }
-                                            className="group sticky left-0 z-30 cursor-pointer select-none border border-slate-300 bg-slate-100 text-center text-xs font-medium text-slate-500"
-                                            style={{
-                                                width: `${ROW_HEADER_WIDTH}px`,
-                                                minWidth: `${ROW_HEADER_WIDTH}px`,
-                                                maxWidth: `${ROW_HEADER_WIDTH}px`,
-                                                height: `${rowHeights[row] ?? DEFAULT_ROW_HEIGHT}px`,
-                                            }}
-                                        >
-                                            <div className="relative flex h-full items-center justify-center">
-
-                                                {
-                                                    row +
-                                                    1
-                                                }
-
-                                                <div
-                                                    onMouseDown={(
-                                                        event,
-                                                    ) =>
-                                                        startRowResize(
-                                                            event,
+                                                    onDoubleClick={() =>
+                                                        handleCellDoubleClick(
                                                             row,
+                                                            col,
                                                         )
                                                     }
-                                                    onClick={(
-                                                        event,
-                                                    ) => {
-                                                        event.preventDefault();
-                                                        event.stopPropagation();
+                                                    className={[
+                                                        'relative cursor-cell select-none p-0',
+
+                                                        inRange
+                                                            ? 'bg-blue-50'
+                                                            : '',
+
+                                                        selected
+                                                            ? 'z-10 outline outline-2 outline-blue-500'
+                                                            : '',
+                                                    ].join(
+                                                        ' ',
+                                                    )}
+                                                    style={{
+                                                        width:
+                                                            mergedWidth ??
+                                                            columnWidths[
+                                                                col
+                                                            ],
+
+                                                        minWidth:
+                                                            mergedWidth ??
+                                                            columnWidths[
+                                                                col
+                                                            ],
+
+                                                        maxWidth:
+                                                            mergedWidth ??
+                                                            columnWidths[
+                                                                col
+                                                            ],
+
+                                                        height:
+                                                            rowHeights[
+                                                                row
+                                                            ],
+
+                                                        backgroundColor:
+                                                            cell.backgroundColor ||
+                                                            '#ffffff',
+
+                                                        color:
+                                                            cell.color ||
+                                                            '#1e293b',
+
+                                                        fontFamily:
+                                                            cell.fontFamily ||
+                                                            'Calibri',
+
+                                                        fontSize:
+                                                            cell.fontSize ||
+                                                            11,
+
+                                                        fontWeight:
+                                                            cell.bold
+                                                                ? 700
+                                                                : 400,
+
+                                                        fontStyle:
+                                                            cell.italic
+                                                                ? 'italic'
+                                                                : 'normal',
+
+                                                        textDecoration:
+                                                            cell.underline
+                                                                ? 'underline'
+                                                                : 'none',
+
+                                                        textAlign:
+                                                            cell.horizontalAlign ||
+                                                            'left',
+
+                                                        verticalAlign:
+                                                            cell.verticalAlign ||
+                                                            'middle',
+
+                                                        borderTop:
+                                                            cell.border
+                                                                ?.top ||
+                                                            '1px solid #cbd5e1',
+
+                                                        borderRight:
+                                                            cell.border
+                                                                ?.right ||
+                                                            '1px solid #cbd5e1',
+
+                                                        borderBottom:
+                                                            cell.border
+                                                                ?.bottom ||
+                                                            '1px solid #cbd5e1',
+
+                                                        borderLeft:
+                                                            cell.border
+                                                                ?.left ||
+                                                            '1px solid #cbd5e1',
                                                     }}
-                                                    className="absolute bottom-[-4px] left-0 z-[60] h-[8px] w-full cursor-row-resize"
-                                                    title="Resize row"
-                                                />
-                                            </div>
-                                        </th>
-
-                                        {rowData.map(
-                                            (
-                                                cell,
-                                                col,
-                                            ) => {
-                                                const position =
-                                                    {
-                                                        row,
-                                                        col,
-                                                    };
-
-                                                const selected =
-                                                    isSameCell(
-                                                        selectedCell,
-                                                        position,
-                                                    );
-
-                                                const inRange =
-                                                    isCellInRange(
-                                                        position,
-                                                        selectionRange,
-                                                    );
-
-                                                const editing =
-                                                    isSameCell(
-                                                        editingCell,
-                                                        position,
-                                                    );
-
-                                                const merge =
-                                                    getMergeForCell(
-                                                        row,
-                                                        col,
-                                                    );
-
-                                                const mergeStart =
-                                                    isMergeStart(
-                                                        row,
-                                                        col,
-                                                    );
-
-                                                const hiddenByMerge =
-                                                    isInsideMergeButNotStart(
-                                                        row,
-                                                        col,
-                                                    );
-
-                                                if (
-                                                    hiddenByMerge
-                                                ) {
-                                                    return null;
-                                                }
-
-                                                const rowSpan =
-                                                    mergeStart &&
-                                                    merge
-                                                        ? merge.endRow -
-                                                          merge.startRow +
-                                                          1
-                                                        : undefined;
-
-                                                const colSpan =
-                                                    mergeStart &&
-                                                    merge
-                                                        ? merge.endColumn -
-                                                          merge.startColumn +
-                                                          1
-                                                        : undefined;
-
-                                                const mergedWidth =
-                                                    mergeStart &&
-                                                    merge
-                                                        ? columnWidths
-                                                              .slice(
-                                                                  merge.startColumn,
-                                                                  merge.endColumn +
-                                                                      1,
-                                                              )
-                                                              .reduce(
-                                                                  (
-                                                                      total,
-                                                                      width,
-                                                                  ) =>
-                                                                      total +
-                                                                      width,
-                                                                  0,
-                                                              )
-                                                        : undefined;
-
-                                                return (
-                                                    <td
-                                                        key={
-                                                            col
-                                                        }
-                                                        rowSpan={
-                                                            rowSpan
-                                                        }
-                                                        colSpan={
-                                                            colSpan
-                                                        }
-                                                        onMouseDown={(
-                                                            event,
-                                                        ) =>
-                                                            handleCellMouseDown(
+                                                >
+                                                    {editing ? (
+                                                        <input
+                                                            ref={
+                                                                inputRef
+                                                            }
+                                                            autoFocus
+                                                            value={
+                                                                editingValue
+                                                            }
+                                                            onChange={(
                                                                 event,
-                                                                row,
-                                                                col,
-                                                            )
-                                                        }
-                                                        onDoubleClick={() =>
-                                                            handleCellDoubleClick(
-                                                                row,
-                                                                col,
-                                                            )
-                                                        }
-                                                        className={[
-                                                            'relative cursor-cell select-none p-0',
+                                                            ) =>
+                                                                setEditingValue(
+                                                                    event
+                                                                        .target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                            onBlur={() =>
+                                                                commitEditing()
+                                                            }
+                                                            onKeyDown={(
+                                                                event,
+                                                            ) => {
+                                                                if (
+                                                                    event.key ===
+                                                                    'Enter'
+                                                                ) {
+                                                                    event.preventDefault();
 
-                                                            inRange
-                                                                ? 'bg-blue-50'
-                                                                : '',
+                                                                    commitEditing(
+                                                                        'down',
+                                                                    );
+                                                                }
 
-                                                            selected
-                                                                ? 'z-10 outline outline-2 outline-blue-500'
-                                                                : '',
-                                                        ].join(
-                                                            ' ',
+                                                                if (
+                                                                    event.key ===
+                                                                    'Tab'
+                                                                ) {
+                                                                    event.preventDefault();
+
+                                                                    commitEditing(
+                                                                        'right',
+                                                                    );
+                                                                }
+
+                                                                if (
+                                                                    event.key ===
+                                                                    'Escape'
+                                                                ) {
+                                                                    event.preventDefault();
+
+                                                                    cancelEditing();
+                                                                }
+                                                            }}
+                                                            className="absolute inset-0 z-20 h-full w-full border-0 px-2 outline-none"
+                                                            style={{
+                                                                fontFamily:
+                                                                    cell.fontFamily ||
+                                                                    'Calibri',
+
+                                                                fontSize:
+                                                                    cell.fontSize ||
+                                                                    11,
+
+                                                                fontWeight:
+                                                                    cell.bold
+                                                                        ? 700
+                                                                        : 400,
+
+                                                                fontStyle:
+                                                                    cell.italic
+                                                                        ? 'italic'
+                                                                        : 'normal',
+
+                                                                textDecoration:
+                                                                    cell.underline
+                                                                        ? 'underline'
+                                                                        : 'none',
+
+                                                                color:
+                                                                    cell.color ||
+                                                                    '#1e293b',
+
+                                                                backgroundColor:
+                                                                    cell.backgroundColor ||
+                                                                    '#ffffff',
+
+                                                                textAlign:
+                                                                    cell.horizontalAlign ||
+                                                                    'left',
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div
+                                                            className="flex h-full w-full"
+                                                            style={{
+                                                                minWidth:
+                                                                    mergedWidth ??
+                                                                    columnWidths[
+                                                                        col
+                                                                    ],
+
+                                                                alignItems:
+                                                                    cell.verticalAlign ===
+                                                                    'top'
+                                                                        ? 'flex-start'
+                                                                        : cell.verticalAlign ===
+                                                                            'bottom'
+                                                                          ? 'flex-end'
+                                                                          : 'center',
+
+                                                                justifyContent:
+                                                                    cell.horizontalAlign ===
+                                                                    'right'
+                                                                        ? 'flex-end'
+                                                                        : cell.horizontalAlign ===
+                                                                            'center'
+                                                                          ? 'center'
+                                                                          : 'flex-start',
+
+                                                                overflow:
+                                                                    cell.wrapText
+                                                                        ? 'visible'
+                                                                        : 'hidden',
+
+                                                                whiteSpace:
+                                                                    cell.wrapText
+                                                                        ? 'normal'
+                                                                        : 'nowrap',
+
+                                                                overflowWrap:
+                                                                    cell.wrapText
+                                                                        ? 'break-word'
+                                                                        : 'normal',
+
+                                                                wordBreak:
+                                                                    cell.wrapText
+                                                                        ? 'break-word'
+                                                                        : 'normal',
+
+                                                                padding:
+                                                                    '4px 8px',
+                                                            }}
+                                                        >
+                                                            {
+                                                                cell.value
+                                                            }
+                                                        </div>
+                                                    )}
+
+                                                    {selected &&
+                                                        !editing && (
+                                                            <div className="pointer-events-none absolute -bottom-[2px] -right-[2px] z-30 h-1.5 w-1.5 bg-blue-600" />
                                                         )}
-                                                        style={{
-                                                            width:
-                                                                mergedWidth ??
-                                                                columnWidths[
-                                                                    col
-                                                                ],
-
-                                                            minWidth:
-                                                                mergedWidth ??
-                                                                columnWidths[
-                                                                    col
-                                                                ],
-
-                                                            maxWidth:
-                                                                mergedWidth ??
-                                                                columnWidths[
-                                                                    col
-                                                                ],
-
-                                                            height:
-                                                                rowHeights[
-                                                                    row
-                                                                ],
-
-                                                            backgroundColor:
-                                                                cell.backgroundColor ||
-                                                                '#ffffff',
-
-                                                            color:
-                                                                cell.color ||
-                                                                '#1e293b',
-
-                                                            fontFamily:
-                                                                cell.fontFamily ||
-                                                                'Calibri',
-
-                                                            fontSize:
-                                                                cell.fontSize ||
-                                                                11,
-
-                                                            fontWeight:
-                                                                cell.bold
-                                                                    ? 700
-                                                                    : 400,
-
-                                                            fontStyle:
-                                                                cell.italic
-                                                                    ? 'italic'
-                                                                    : 'normal',
-
-                                                            textDecoration:
-                                                                cell.underline
-                                                                    ? 'underline'
-                                                                    : 'none',
-
-                                                            textAlign:
-                                                                cell.horizontalAlign ||
-                                                                'left',
-
-                                                            verticalAlign:
-                                                                cell.verticalAlign ||
-                                                                'middle',
-
-                                                            borderTop:
-                                                                cell.border
-                                                                    ?.top ||
-                                                                '1px solid #cbd5e1',
-
-                                                            borderRight:
-                                                                cell.border
-                                                                    ?.right ||
-                                                                '1px solid #cbd5e1',
-
-                                                            borderBottom:
-                                                                cell.border
-                                                                    ?.bottom ||
-                                                                '1px solid #cbd5e1',
-
-                                                            borderLeft:
-                                                                cell.border
-                                                                    ?.left ||
-                                                                '1px solid #cbd5e1',
-                                                        }}
-                                                    >
-                                                        {editing ? (
-                                                            <input
-                                                                ref={
-                                                                    inputRef
-                                                                }
-                                                                autoFocus
-                                                                value={
-                                                                    editingValue
-                                                                }
-                                                                onChange={(
-                                                                    event,
-                                                                ) =>
-                                                                    setEditingValue(
-                                                                        event
-                                                                            .target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                                onBlur={() =>
-                                                                    commitEditing()
-                                                                }
-                                                                onKeyDown={(
-                                                                    event,
-                                                                ) => {
-                                                                    if (
-                                                                        event.key ===
-                                                                        'Enter'
-                                                                    ) {
-                                                                        event.preventDefault();
-
-                                                                        commitEditing(
-                                                                            'down',
-                                                                        );
-                                                                    }
-
-                                                                    if (
-                                                                        event.key ===
-                                                                        'Tab'
-                                                                    ) {
-                                                                        event.preventDefault();
-
-                                                                        commitEditing(
-                                                                            'right',
-                                                                        );
-                                                                    }
-
-                                                                    if (
-                                                                        event.key ===
-                                                                        'Escape'
-                                                                    ) {
-                                                                        event.preventDefault();
-
-                                                                        cancelEditing();
-                                                                    }
-                                                                }}
-                                                                className="absolute inset-0 z-20 h-full w-full border-0 px-2 outline-none"
-                                                                style={{
-                                                                    fontFamily:
-                                                                        cell.fontFamily ||
-                                                                        'Calibri',
-
-                                                                    fontSize:
-                                                                        cell.fontSize ||
-                                                                        11,
-
-                                                                    fontWeight:
-                                                                        cell.bold
-                                                                            ? 700
-                                                                            : 400,
-
-                                                                    fontStyle:
-                                                                        cell.italic
-                                                                            ? 'italic'
-                                                                            : 'normal',
-
-                                                                    textDecoration:
-                                                                        cell.underline
-                                                                            ? 'underline'
-                                                                            : 'none',
-
-                                                                    color:
-                                                                        cell.color ||
-                                                                        '#1e293b',
-
-                                                                    backgroundColor:
-                                                                        cell.backgroundColor ||
-                                                                        '#ffffff',
-
-                                                                    textAlign:
-                                                                        cell.horizontalAlign ||
-                                                                        'left',
-                                                                }}
-                                                            />
-                                                        ) : (
-                                                            <div
-                                                                className="flex h-full w-full"
-                                                                style={{
-                                                                    minWidth:
-                                                                        mergedWidth ??
-                                                                        columnWidths[
-                                                                            col
-                                                                        ],
-
-                                                                    alignItems:
-                                                                        cell.verticalAlign ===
-                                                                        'top'
-                                                                            ? 'flex-start'
-                                                                            : cell.verticalAlign ===
-                                                                                'bottom'
-                                                                              ? 'flex-end'
-                                                                              : 'center',
-
-                                                                    justifyContent:
-                                                                        cell.horizontalAlign ===
-                                                                        'right'
-                                                                            ? 'flex-end'
-                                                                            : cell.horizontalAlign ===
-                                                                                'center'
-                                                                              ? 'center'
-                                                                              : 'flex-start',
-
-                                                                    overflow:
-                                                                        cell.wrapText
-                                                                            ? 'visible'
-                                                                            : 'hidden',
-
-                                                                    whiteSpace:
-                                                                        cell.wrapText
-                                                                            ? 'normal'
-                                                                            : 'nowrap',
-
-                                                                    overflowWrap:
-                                                                        cell.wrapText
-                                                                            ? 'break-word'
-                                                                            : 'normal',
-
-                                                                    wordBreak:
-                                                                        cell.wrapText
-                                                                            ? 'break-word'
-                                                                            : 'normal',
-
-                                                                    padding:
-                                                                        '4px 8px',
-                                                                }}
-                                                            >
-                                                                {
-                                                                    cell.value
-                                                                }
-                                                            </div>
-                                                        )}
-
-                                                        {selected &&
-                                                            !editing && (
-                                                                <div className="pointer-events-none absolute -bottom-[2px] -right-[2px] z-30 h-1.5 w-1.5 bg-blue-600" />
-                                                            )}
-                                                    </td>
-                                                );
-                                            },
-                                        )}
-                                    </tr>
-                                ),
-                            )}
-                        </tbody>
-                    </table>
-
-                    {/*
-                    |--------------------------------------------------------------------------
-                    | EXCEL IMAGE LAYER
-                    |--------------------------------------------------------------------------
-                    |
-                    | Images are rendered AFTER the table.
-                    |
-                    | pointerEvents = none means the image does not prevent
-                    | selecting/editing cells underneath it.
-                    |--------------------------------------------------------------------------
-                    */}
-
-                    {images.length > 0 && (
-                        <div
-                            className="pointer-events-none absolute left-0 top-0 z-[35]"
-                            style={{
-                                width:
-                                    `${tableWidth}px`,
-
-                                height:
-                                    `${tableHeight}px`,
-                            }}
-                        >
-                            {images.map(
-                                (
-                                    image,
-                                    index,
-                                ) => {
-                                    const position =
-                                        getImagePosition(
-                                            image,
-                                        );
-
-                                    return (
-                                        <img
-                                            key={
-                                                image.id ||
-                                                `excel-image-${index}`
-                                            }
-                                            src={
-                                                image.src
-                                            }
-                                            alt=""
-                                            draggable={
-                                                false
-                                            }
-                                            className="absolute block object-contain"
-                                            style={{
-                                                left:
-                                                    `${position.left}px`,
-
-                                                top:
-                                                    `${position.top}px`,
-
-                                                width:
-                                                    `${image.width}px`,
-
-                                                height:
-                                                    `${image.height}px`,
-
-                                                maxWidth:
-                                                    'none',
-
-                                                maxHeight:
-                                                    'none',
-
-                                                objectFit:
-                                                    'contain',
-                                            }}
-                                        />
-                                    );
-                                },
-                            )}
-                        </div>
-                    )}
-                </div>
+                                                </td>
+                                            );
+                                        },
+                                    )}
+                                </tr>
+                            ),
+                        )}
+                    </tbody>
+                </table>
             </div>
 
             {/* STATUS BAR */}
@@ -3003,15 +2683,6 @@ export default function ExcelEditor({
                     {selectionRange
                         ? 'Range selected'
                         : 'Ready'}
-                </span>
-
-                <span className="ml-4">
-                    {images.length}{' '}
-                    image
-                    {images.length ===
-                    1
-                        ? ''
-                        : 's'}
                 </span>
 
                 <span className="ml-auto">
