@@ -35,6 +35,32 @@ export const TableHeaderAlignment =
                         };
                     },
                 },
+
+                backgroundColor: {
+                    default: null,
+
+                    parseHTML: (element) => {
+                        return (
+                            element.getAttribute(
+                                'data-background-color',
+                            ) || null
+                        );
+                    },
+
+                    renderHTML: (attributes) => {
+                        if (!attributes.backgroundColor) {
+                            return {};
+                        }
+
+                        return {
+                            'data-background-color':
+                                attributes.backgroundColor,
+
+                            style:
+                                `background-color: ${attributes.backgroundColor};`,
+                        };
+                    },
+                },
             };
         },
     });
