@@ -66,6 +66,31 @@ Route::post(
     [AuthController::class, 'resetPassword']
 );
 
+
+Route::post(
+    '/forgot-password/resend',
+    [AuthController::class, 'resendForgotPasswordOtp']
+);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
