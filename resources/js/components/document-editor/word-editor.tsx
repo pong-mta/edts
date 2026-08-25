@@ -8,6 +8,7 @@ import FontFamily from '@tiptap/extension-font-family';
 import { TextStyle } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
+import { FontSize } from '@/components/document-editor/extensions/font-size';
 import {
     Bold,
     Highlighter,
@@ -77,6 +78,7 @@ export default function WordEditor({
             StarterKit,
 
             TextStyle,
+            FontSize,
 
             FontFamily.configure({
                 types: ['textStyle'],
@@ -215,7 +217,7 @@ export default function WordEditor({
     |--------------------------------------------------------------------------
     */
 
-    const setFontSizeValue = (
+   const setFontSizeValue = (
         value: string,
     ) => {
         setFontSize(value);
@@ -223,9 +225,7 @@ export default function WordEditor({
         editor
             .chain()
             .focus()
-            .setMark('textStyle', {
-                fontSize: value,
-            })
+            .setFontSize(value)
             .run();
     };
 
