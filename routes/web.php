@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -20,8 +21,13 @@ Route::get('/reset-password', function () {
 })->name('reset-password');
 
 Route::middleware(['auth'])->group(function () {
-    Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
+    Route::get('dashboard', function (Request $request) {
+        return Inertia::render('dashboard', [
+            'user' => $request->user()->load([
+                'department',
+                'roles',
+            ]),
+        ]);
     })->name('dashboard');
 });
 
