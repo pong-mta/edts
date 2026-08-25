@@ -1,264 +1,235 @@
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
 import {
+    ArrowLeft,
+    CheckCircle2,
     LoaderCircle,
     ShieldCheck,
 } from 'lucide-react';
-import {
-    FormEventHandler,
-    useEffect,
-    useState,
-} from 'react';
-
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-
-interface VerifyResponse {
-    message: string;
-    reset_token: string;
-    user_id: number;
-}
-
-interface ResendResponse {
-    message: string;
-    user_id: number;
-    otp_expires_at: number;
-    resends_remaining: number;
-}
-
-const MAX_RESENDS = 3;
+import { useEffect, useRef, useState } from 'react';
 
 export default function VerifyForgotPassword() {
-    const [otp, setOtp] = useState('');
-    const [phone, setPhone] = useState('');
-    const [userId, setUserId] = useState('');
+    const [userId, setUserId] = useState<string>('');
+    const [phone, setPhone] = useState<string>('');
 
-    const [expiresAt, setExpiresAt] =
-        useState<number | null>(null);
+    const [otp, setOtp] = useState<string[]>([
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+    ]);
 
-    const [secondsLeft, setSecondsLeft] =
-        useState(0);
+    const [processing, setProcessing] = useState(false);
+    const [resending, setResending] = useState(false);
 
-    const [processing, setProcessing] =
-        useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
 
-    const [resending, setResending] =
-        useState(false);
+    const [countdown, setCountdown] = useState(300);
 
-    const [error, setError] =
-        useState('');
-
-    const [success, setSuccess] =
-        useState('');
-
-    const [resendsRemaining, setResendsRemaining] =
-        useState(MAX_RESENDS);
+    const inputs = useRef<
+        Array<HTMLInputElement | null>
+    >([]);
 
     /*
     |--------------------------------------------------------------------------
-    | LOAD RECOVERY DATA
+    | GET RECOVERY SESSION
     |--------------------------------------------------------------------------
     */
 
     useEffect(() => {
-        const params =
-            new URLSearchParams(
-                window.location.search,
+        const params = new URLSearchParams(
+            window.location.search,
+        );
+
+        const queryUserId =
+            params.get('user_id') ||
+            sessionStorage.getItem(
+                'forgot_password_user_id',
             );
 
-        const urlUserId =
-            params.get('user_id') ?? '';
-
-        const urlPhone =
-            params.get('phone') ?? '';
-
-        const storedUserId =
+        const queryPhone =
+            params.get('phone') ||
             sessionStorage.getItem(
-                'reset_user_id',
-            ) ?? '';
-
-        const storedPhone =
-            sessionStorage.getItem(
-                'reset_phone',
-            ) ?? '';
-
-        const storedExpiresAt =
-            sessionStorage.getItem(
-                'otp_expires_at',
+                'forgot_password_phone',
             );
 
-        const storedResends =
+        const expiresAt =
+            params.get('otp_expires_at') ||
             sessionStorage.getItem(
-                'otp_resends_remaining',
+                'forgot_password_otp_expires_at',
             );
 
-        /*
-        |--------------------------------------------------------------------------
-        | USER
-        |--------------------------------------------------------------------------
-        */
-
-        const finalUserId =
-            urlUserId || storedUserId;
-
-        if (finalUserId) {
-            setUserId(finalUserId);
+        if (queryUserId) {
+            setUserId(queryUserId);
 
             sessionStorage.setItem(
-                'reset_user_id',
-                finalUserId,
+                'forgot_password_user_id',
+                queryUserId,
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | PHONE
-        |--------------------------------------------------------------------------
-        */
-
-        const finalPhone =
-            urlPhone || storedPhone;
-
-        if (finalPhone) {
-            setPhone(finalPhone);
+        if (queryPhone) {
+            setPhone(queryPhone);
 
             sessionStorage.setItem(
-                'reset_phone',
-                finalPhone,
+                'forgot_password_phone',
+                queryPhone,
             );
         }
 
         /*
         |--------------------------------------------------------------------------
-        | OTP EXPIRATION
+        | RESTORE TIMER
         |--------------------------------------------------------------------------
         */
 
-        if (storedExpiresAt) {
-            const timestamp =
-                Number(storedExpiresAt);
+        if (expiresAt) {
+            const remaining = Math.max(
+                0,
+                Math.floor(
+                    Number(expiresAt) -
+                        Date.now() / 1000,
+                ),
+            );
 
-            if (
-                Number.isFinite(
-                    timestamp,
-                ) &&
-                timestamp > 0
-            ) {
-                setExpiresAt(
-                    timestamp,
-                );
-            }
+            setCountdown(remaining);
+        } else {
+            setCountdown(300);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | RESEND COUNT
-        |--------------------------------------------------------------------------
-        */
-
-        if (storedResends) {
-            const remaining =
-                Number(storedResends);
-
-            if (
-                Number.isFinite(
-                    remaining,
-                ) &&
-                remaining >= 0
-            ) {
-                setResendsRemaining(
-                    remaining,
-                );
-            }
-        }
+        setTimeout(() => {
+            inputs.current[0]?.focus();
+        }, 200);
     }, []);
 
     /*
     |--------------------------------------------------------------------------
     | COUNTDOWN
     |--------------------------------------------------------------------------
-    |
-    | This countdown is ONLY used to control RESEND.
-    | It does NOT disable the OTP input or Verify button.
-    |
     */
 
     useEffect(() => {
-        if (!expiresAt) {
-            setSecondsLeft(0);
+        if (countdown <= 0) {
             return;
         }
 
-        const updateTimer = () => {
-            const remaining =
-                Math.max(
-                    0,
-                    Math.floor(
-                        (
-                            expiresAt *
-                                1000 -
-                            Date.now()
-                        ) /
-                            1000,
-                    ),
-                );
-
-            setSecondsLeft(
-                remaining,
+        const timer = setInterval(() => {
+            setCountdown((value) =>
+                value > 0 ? value - 1 : 0,
             );
-        };
+        }, 1000);
 
-        updateTimer();
-
-        const interval =
-            window.setInterval(
-                updateTimer,
-                1000,
-            );
-
-        return () => {
-            window.clearInterval(
-                interval,
-            );
-        };
-    }, [expiresAt]);
+        return () => clearInterval(timer);
+    }, [countdown]);
 
     /*
     |--------------------------------------------------------------------------
-    | TIMER
+    | OTP INPUT
     |--------------------------------------------------------------------------
     */
 
-    const expired =
-        secondsLeft <= 0;
+    const handleOtpChange = (
+        index: number,
+        value: string,
+    ) => {
+        const digits = value.replace(
+            /\D/g,
+            '',
+        );
 
-    const minutes =
-        Math.floor(
-            secondsLeft / 60,
-        )
-            .toString()
-            .padStart(2, '0');
+        if (!digits) {
+            const newOtp = [...otp];
 
-    const seconds =
-        (
-            secondsLeft % 60
-        )
-            .toString()
-            .padStart(2, '0');
+            newOtp[index] = '';
+
+            setOtp(newOtp);
+
+            return;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | HANDLE PASTE
+        |--------------------------------------------------------------------------
+        */
+
+        if (digits.length > 1) {
+            const pasted = digits
+                .slice(0, 6)
+                .split('');
+
+            const newOtp = [
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+            ];
+
+            pasted.forEach(
+                (digit, i) => {
+                    newOtp[i] = digit;
+                },
+            );
+
+            setOtp(newOtp);
+
+            const nextIndex = Math.min(
+                pasted.length,
+                5,
+            );
+
+            setTimeout(() => {
+                inputs.current[
+                    nextIndex
+                ]?.focus();
+            }, 50);
+
+            setError('');
+
+            return;
+        }
+
+        const newOtp = [...otp];
+
+        newOtp[index] =
+            digits.slice(-1);
+
+        setOtp(newOtp);
+
+        setError('');
+
+        if (index < 5) {
+            inputs.current[
+                index + 1
+            ]?.focus();
+        }
+    };
 
     /*
     |--------------------------------------------------------------------------
-    | MASK PHONE
+    | KEYBOARD
     |--------------------------------------------------------------------------
     */
 
-    const maskedPhone =
-        phone.length >= 8
-            ? `${phone.slice(
-                  0,
-                  4,
-              )}••••${phone.slice(-3)}`
-            : phone;
+    const handleKeyDown = (
+        index: number,
+        e: React.KeyboardEvent<HTMLInputElement>,
+    ) => {
+        if (
+            e.key === 'Backspace' &&
+            !otp[index] &&
+            index > 0
+        ) {
+            inputs.current[
+                index - 1
+            ]?.focus();
+        }
+    };
 
     /*
     |--------------------------------------------------------------------------
@@ -266,256 +237,284 @@ export default function VerifyForgotPassword() {
     |--------------------------------------------------------------------------
     */
 
-    const submit: FormEventHandler =
-        async (event) => {
-            event.preventDefault();
+    const verify = async () => {
+        const code = otp.join('');
 
-            setError('');
-            setSuccess('');
+        if (code.length !== 6) {
+            setError(
+                'Please enter the complete 6-digit verification code.',
+            );
 
-            if (!userId) {
-                setError(
-                    'Invalid password recovery session.',
+            return;
+        }
+
+        if (!userId) {
+            setError(
+                'Your password recovery session is invalid. Please start again.',
+            );
+
+            return;
+        }
+
+        if (countdown <= 0) {
+            setError(
+                'This verification code has expired. Please request a new code.',
+            );
+
+            return;
+        }
+
+        setProcessing(true);
+        setError('');
+        setSuccess('');
+
+        try {
+            const response =
+                await axios.post(
+                    '/api/forgot-password/verify',
+                    {
+                        user_id:
+                            Number(userId),
+
+                        otp: code,
+                    },
                 );
 
-                return;
+            /*
+            |--------------------------------------------------------------------------
+            | SAVE RESET TOKEN
+            |--------------------------------------------------------------------------
+            */
+
+            const resetToken =
+                response.data.reset_token;
+
+            if (!resetToken) {
+                throw new Error(
+                    'Reset token was not returned.',
+                );
             }
 
-            if (otp.length !== 6) {
-                setError(
-                    'Please enter the 6-digit verification code.',
-                );
+            sessionStorage.setItem(
+                'password_reset_token',
+                resetToken,
+            );
 
-                return;
-            }
+            sessionStorage.setItem(
+                'password_reset_user_id',
+                String(
+                    response.data.user_id ||
+                        userId,
+                ),
+            );
 
-            setProcessing(true);
+            /*
+            |--------------------------------------------------------------------------
+            | CLEAR OTP SESSION
+            |--------------------------------------------------------------------------
+            */
 
-            try {
-                const response =
-                    await axios.post<VerifyResponse>(
-                        '/api/forgot-password/verify',
-                        {
-                            user_id:
-                                Number(
-                                    userId,
-                                ),
-                            otp,
-                        },
-                    );
+            sessionStorage.removeItem(
+                'forgot_password_otp_expires_at',
+            );
 
-                /*
-                |--------------------------------------------------------------------------
-                | SAVE RESET TOKEN
-                |--------------------------------------------------------------------------
-                */
+            sessionStorage.removeItem(
+                'forgot_password_user_id',
+            );
 
-                sessionStorage.setItem(
-                    'reset_token',
-                    response.data
-                        .reset_token,
-                );
+            sessionStorage.removeItem(
+                'forgot_password_phone',
+            );
 
-                sessionStorage.setItem(
-                    'reset_user_id',
-                    String(
-                        response.data
-                            .user_id,
-                    ),
-                );
+            setSuccess(
+                'Verification successful. Redirecting...',
+            );
 
-                /*
-                |--------------------------------------------------------------------------
-                | REMOVE OTP SESSION
-                |--------------------------------------------------------------------------
-                */
+            /*
+            |--------------------------------------------------------------------------
+            | GO TO RESET PASSWORD
+            |--------------------------------------------------------------------------
+            */
 
-                sessionStorage.removeItem(
-                    'otp_expires_at',
-                );
-
-                sessionStorage.removeItem(
-                    'otp_resends_remaining',
-                );
-
-                /*
-                |--------------------------------------------------------------------------
-                | GO TO RESET PASSWORD
-                |--------------------------------------------------------------------------
-                */
-
+            setTimeout(() => {
                 window.location.href =
                     '/reset-password';
-            } catch (err: any) {
-                const response =
-                    err?.response;
+            }, 800);
+        } catch (error: any) {
+            setError(
+                error.response?.data
+                    ?.message ||
+                    'Invalid verification code. Please try again.',
+            );
 
-                /*
-                |--------------------------------------------------------------------------
-                | OTP EXPIRED
-                |--------------------------------------------------------------------------
-                */
+            setOtp([
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+            ]);
 
-                if (
-                    response?.status ===
-                    410
-                ) {
-                    setSecondsLeft(0);
-
-                    setError(
-                        response.data
-                            ?.message ||
-                            'This verification code has expired. Please request a new code.',
-                    );
-
-                    return;
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | TOO MANY ATTEMPTS
-                |--------------------------------------------------------------------------
-                */
-
-                if (
-                    response?.status ===
-                    429
-                ) {
-                    setError(
-                        response.data
-                            ?.message ||
-                            'Too many verification attempts. Please try again later.',
-                    );
-
-                    return;
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | WRONG OTP
-                |--------------------------------------------------------------------------
-                */
-
-                setError(
-                    response?.data
-                        ?.message ||
-                        'Invalid verification code.',
-                );
-            } finally {
-                setProcessing(false);
-            }
-        };
+            setTimeout(() => {
+                inputs.current[0]?.focus();
+            }, 100);
+        } finally {
+            setProcessing(false);
+        }
+    };
 
     /*
     |--------------------------------------------------------------------------
     | RESEND OTP
     |--------------------------------------------------------------------------
-    |
-    | Resend is ONLY available after the 5-minute
-    | timer reaches zero.
-    |
     */
 
-    const resendOtp =
-        async () => {
-            if (
-                !expired ||
-                !userId ||
-                resendsRemaining <= 0
-            ) {
-                return;
+    const resendOtp = async () => {
+        if (
+            !userId ||
+            resending ||
+            countdown > 0
+        ) {
+            return;
+        }
+
+        setResending(true);
+        setError('');
+        setSuccess('');
+
+        try {
+            const response =
+                await axios.post(
+                    '/api/forgot-password/resend',
+                    {
+                        user_id:
+                            Number(userId),
+                    },
+                );
+
+            const expiresIn =
+                response.data
+                    .otp_expires_in ||
+                300;
+
+            const expiresAt =
+                response.data
+                    .otp_expires_at ||
+                Math.floor(
+                    Date.now() / 1000,
+                ) + expiresIn;
+
+            sessionStorage.setItem(
+                'forgot_password_otp_expires_at',
+                String(expiresAt),
+            );
+
+            setCountdown(
+                expiresIn,
+            );
+
+            setOtp([
+                '',
+                '',
+                '',
+                '',
+                '',
+                '',
+            ]);
+
+            setSuccess(
+                'A new verification code has been sent to your mobile number.',
+            );
+
+            setTimeout(() => {
+                inputs.current[0]?.focus();
+            }, 100);
+        } catch (error: any) {
+            const retryAfter =
+                error.response?.data
+                    ?.retry_after;
+
+            if (retryAfter) {
+                setCountdown(
+                    Number(retryAfter),
+                );
             }
 
-            setError('');
-            setSuccess('');
-            setResending(true);
+            setError(
+                error.response?.data
+                    ?.message ||
+                    'Unable to resend the verification code.',
+            );
+        } finally {
+            setResending(false);
+        }
+    };
 
-            try {
-                const response =
-                    await axios.post<ResendResponse>(
-                        '/api/forgot-password/resend',
-                        {
-                            user_id:
-                                Number(
-                                    userId,
-                                ),
-                        },
-                    );
+    /*
+    |--------------------------------------------------------------------------
+    | BACK
+    |--------------------------------------------------------------------------
+    */
 
-                const newExpiresAt =
-                    response.data
-                        .otp_expires_at;
+    const goBack = () => {
+        /*
+        | Do NOT allow the user to go back to
+        | forgot-password and create another
+        | recovery session while this session is active.
+        */
 
-                const remaining =
-                    response.data
-                        .resends_remaining;
+        if (countdown > 0) {
+            setError(
+                'Your current verification code is still active. Please complete verification or wait for the code to expire.',
+            );
 
-                /*
-                |--------------------------------------------------------------------------
-                | UPDATE STATE
-                |--------------------------------------------------------------------------
-                */
+            return;
+        }
 
-                setExpiresAt(
-                    newExpiresAt,
-                );
+        sessionStorage.removeItem(
+            'forgot_password_user_id',
+        );
 
-                setResendsRemaining(
-                    remaining,
-                );
+        sessionStorage.removeItem(
+            'forgot_password_phone',
+        );
 
-                setSecondsLeft(
-                    Math.max(
-                        0,
-                        Math.floor(
-                            (
-                                newExpiresAt *
-                                    1000 -
-                                Date.now()
-                            ) /
-                                1000,
-                        ),
-                    ),
-                );
+        sessionStorage.removeItem(
+            'forgot_password_otp_expires_at',
+        );
 
-                setOtp('');
+        window.location.href =
+            '/forgot-password';
+    };
 
-                /*
-                |--------------------------------------------------------------------------
-                | SAVE STATE
-                |--------------------------------------------------------------------------
-                */
+    /*
+    |--------------------------------------------------------------------------
+    | FORMAT TIMER
+    |--------------------------------------------------------------------------
+    */
 
-                sessionStorage.setItem(
-                    'otp_expires_at',
-                    String(
-                        newExpiresAt,
-                    ),
-                );
+    const formattedTime =
+        `${String(
+            Math.floor(
+                countdown / 60,
+            ),
+        ).padStart(2, '0')}:${String(
+            countdown % 60,
+        ).padStart(2, '0')}`;
 
-                sessionStorage.setItem(
-                    'otp_resends_remaining',
-                    String(
-                        remaining,
-                    ),
-                );
+    /*
+    |--------------------------------------------------------------------------
+    | MASK PHONE
+    |--------------------------------------------------------------------------
+    */
 
-                setSuccess(
-                    'A new verification code has been sent.',
-                );
-            } catch (err: any) {
-                const response =
-                    err?.response;
-
-                setError(
-                    response?.data
-                        ?.message ||
-                        'Unable to send a new verification code.',
-                );
-            } finally {
-                setResending(false);
-            }
-        };
+    const maskedPhone = phone
+        ? `${phone.slice(
+              0,
+              4,
+          )}****${phone.slice(-3)}`
+        : 'your mobile number';
 
     /*
     |--------------------------------------------------------------------------
@@ -525,289 +524,269 @@ export default function VerifyForgotPassword() {
 
     return (
         <>
-            <Head title="Verify OTP" />
+            <Head title="Verify Recovery Code | Municipality of Estancia" />
 
-            <div className="h-dvh overflow-hidden bg-slate-100">
+            <div className="h-screen overflow-hidden bg-slate-100">
 
-                <div className="flex h-full items-center justify-center overflow-y-auto px-4 py-4">
+                {/* HEADER */}
 
-                    <div className="w-full max-w-[420px]">
+                <header className="h-[72px] bg-[#0b1f3a] text-white">
+                    <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-5">
 
-                        {/* ================================================== */}
-                        {/* MUNICIPALITY BRANDING */}
-                        {/* ================================================== */}
+                        <div className="flex items-center gap-3">
 
-                        <div className="mb-4 text-center">
-
-                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white p-1.5 shadow-sm ring-1 ring-slate-200">
-
+                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white p-1">
                                 <img
                                     src="/images/estancia-logo.png"
                                     alt="Municipality of Estancia"
                                     className="h-full w-full object-contain"
                                 />
-
                             </div>
 
-                            <p className="mt-2 text-[9px] uppercase tracking-[0.16em] text-slate-400">
-                                Republic of the Philippines
+                            <div>
+                                <p className="text-[8px] uppercase tracking-[0.2em] text-blue-200">
+                                    Republic of the Philippines
+                                </p>
+
+                                <h1 className="text-sm font-bold uppercase">
+                                    Municipality of Estancia
+                                </h1>
+
+                                <p className="text-[10px] text-blue-200">
+                                    Province of Iloilo
+                                </p>
+                            </div>
+
+                        </div>
+
+                        <span className="text-xs font-semibold">
+                            eDTS
+                        </span>
+
+                    </div>
+                </header>
+
+                {/* CONTENT */}
+
+                <main className="flex h-[calc(100vh-72px)] items-center justify-center px-4">
+
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl sm:p-8">
+
+                        {/* ICON */}
+
+                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-blue-700">
+                            <ShieldCheck className="h-8 w-8" />
+                        </div>
+
+                        {/* TITLE */}
+
+                        <div className="mt-5 text-center">
+
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-700">
+                                Password Recovery
                             </p>
 
-                            <h1 className="text-sm font-bold text-slate-800">
-                                Municipality of Estancia
-                            </h1>
+                            <h2 className="mt-2 text-2xl font-bold text-slate-900">
+                                Verify your mobile
+                            </h2>
 
-                            <p className="text-[9px] text-slate-400">
-                                Province of Iloilo
+                            <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
+                                Enter the 6-digit verification code sent to
+                            </p>
+
+                            <p className="mt-1 font-semibold text-slate-800">
+                                {maskedPhone}
                             </p>
 
                         </div>
 
-                        {/* ================================================== */}
-                        {/* CARD */}
-                        {/* ================================================== */}
+                        {/* ERROR */}
 
-                        <div className="rounded-2xl bg-white px-5 py-5 shadow-lg ring-1 ring-slate-200">
-
-                            {/* HEADER */}
-
-                            <div className="text-center">
-
-                                <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-blue-50 text-blue-600">
-
-                                    <ShieldCheck className="h-4 w-4" />
-
-                                </div>
-
-                                <h2 className="text-lg font-bold text-slate-900">
-                                    Verify your account
-                                </h2>
-
-                                <p className="mt-1 text-[11px] text-slate-500">
-                                    Enter the 6-digit code sent to
-                                </p>
-
-                                <p className="mt-0.5 text-xs font-semibold text-slate-800">
-                                    {maskedPhone ||
-                                        'your mobile number'}
-                                </p>
-
+                        {error && (
+                            <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-center text-xs leading-5 text-red-700">
+                                {error}
                             </div>
+                        )}
 
-                            {/* ================================================== */}
-                            {/* TIMER */}
-                            {/* ================================================== */}
+                        {/* SUCCESS */}
 
-                            <div
-                                className={`mt-4 rounded-xl px-3 py-2 ${
-                                    expired
-                                        ? 'bg-red-50'
-                                        : 'bg-slate-50'
-                                }`}
-                            >
+                        {success && (
+                            <div className="mt-5 flex items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
+                                <CheckCircle2 className="h-4 w-4 shrink-0" />
 
-                                <p
-                                    className={`text-center text-[9px] uppercase tracking-wider ${
-                                        expired
-                                            ? 'text-red-400'
-                                            : 'text-slate-400'
-                                    }`}
-                                >
-                                    {expired
-                                        ? 'Code expired'
-                                        : 'Code expires in'}
-                                </p>
-
-                                <p
-                                    className={`mt-0.5 text-center text-xl font-bold tabular-nums ${
-                                        expired
-                                            ? 'text-red-600'
-                                            : 'text-slate-900'
-                                    }`}
-                                >
-                                    {expired
-                                        ? '00:00'
-                                        : `${minutes}:${seconds}`}
-                                </p>
-
-                            </div>
-
-                            {/* ================================================== */}
-                            {/* ERROR */}
-                            {/* ================================================== */}
-
-                            {error && (
-                                <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-center text-[11px] leading-4 text-red-600">
-                                    {error}
-                                </div>
-                            )}
-
-                            {/* ================================================== */}
-                            {/* SUCCESS */}
-                            {/* ================================================== */}
-
-                            {success && (
-                                <div className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-center text-[11px] leading-4 text-emerald-700">
+                                <span>
                                     {success}
-                                </div>
-                            )}
-
-                            {/* ================================================== */}
-                            {/* OTP FORM */}
-                            {/* ================================================== */}
-
-                            <form
-                                onSubmit={submit}
-                                className="mt-4"
-                            >
-
-                                <label
-                                    htmlFor="otp"
-                                    className="mb-1.5 block text-[11px] font-semibold text-slate-700"
-                                >
-                                    Verification Code
-                                </label>
-
-                                <Input
-                                    id="otp"
-                                    type="text"
-                                    inputMode="numeric"
-                                    autoComplete="one-time-code"
-                                    maxLength={6}
-                                    autoFocus
-                                    value={otp}
-                                    disabled={
-                                        processing
-                                    }
-                                    onChange={(
-                                        event,
-                                    ) => {
-                                        const value =
-                                            event
-                                                .target
-                                                .value
-                                                .replace(
-                                                    /\D/g,
-                                                    '',
-                                                )
-                                                .slice(
-                                                    0,
-                                                    6,
-                                                );
-
-                                        setOtp(
-                                            value,
-                                        );
-
-                                        setError(
-                                            '',
-                                        );
-                                    }}
-                                    placeholder="000000"
-                                    className="h-12 rounded-xl bg-slate-50 text-center text-xl font-bold tracking-[0.45em]"
-                                />
-
-                                <Button
-                                    type="submit"
-                                    disabled={
-                                        processing ||
-                                        otp.length !==
-                                            6
-                                    }
-                                    className="mt-3 h-10 w-full rounded-xl bg-blue-600 text-xs font-semibold hover:bg-blue-700"
-                                >
-
-                                    {processing && (
-                                        <LoaderCircle className="mr-2 h-3.5 w-3.5 animate-spin" />
-                                    )}
-
-                                    {processing
-                                        ? 'Verifying...'
-                                        : 'Verify Code'}
-
-                                </Button>
-
-                            </form>
-
-                            {/* ================================================== */}
-                            {/* RESEND */}
-                            {/* ================================================== */}
-
-                            <div className="mt-4 text-center">
-
-                                {!expired ? (
-                                    <p className="text-[10px] leading-4 text-slate-400">
-                                        Didn't receive the
-                                        code?
-                                        <br />
-                                        You can request a new
-                                        code after the timer
-                                        expires.
-                                    </p>
-                                ) : resendsRemaining >
-                                  0 ? (
-                                    <>
-                                        <p className="text-[10px] text-slate-500">
-                                            Didn't receive the
-                                            code?
-                                        </p>
-
-                                        <button
-                                            type="button"
-                                            onClick={
-                                                resendOtp
-                                            }
-                                            disabled={
-                                                resending
-                                            }
-                                            className="mt-1 text-[10px] font-semibold text-blue-600 hover:text-blue-700 disabled:opacity-50"
-                                        >
-                                            {resending ? (
-                                                <span className="inline-flex items-center gap-1">
-
-                                                    <LoaderCircle className="h-3 w-3 animate-spin" />
-
-                                                    Sending...
-
-                                                </span>
-                                            ) : (
-                                                'Resend verification code'
-                                            )}
-                                        </button>
-
-                                        <p className="mt-1 text-[9px] text-slate-400">
-                                            {
-                                                resendsRemaining
-                                            }{' '}
-                                            resend
-                                            {resendsRemaining !==
-                                            1
-                                                ? 's'
-                                                : ''}{' '}
-                                            remaining
-                                        </p>
-                                    </>
-                                ) : (
-                                    <p className="text-[10px] text-red-500">
-                                        Resend limit reached.
-                                    </p>
-                                )}
-
+                                </span>
                             </div>
+                        )}
+
+                        {/* OTP */}
+
+                        <div className="mt-7 flex justify-center gap-2 sm:gap-3">
+
+                            {otp.map(
+                                (
+                                    value,
+                                    index,
+                                ) => (
+                                    <input
+                                        key={
+                                            index
+                                        }
+                                        ref={(
+                                            element,
+                                        ) => {
+                                            inputs.current[
+                                                index
+                                            ] =
+                                                element;
+                                        }}
+                                        type="text"
+                                        inputMode="numeric"
+                                        autoComplete={
+                                            index ===
+                                            0
+                                                ? 'one-time-code'
+                                                : 'off'
+                                        }
+                                        maxLength={
+                                            1
+                                        }
+                                        value={
+                                            value
+                                        }
+                                        onChange={(
+                                            e,
+                                        ) =>
+                                            handleOtpChange(
+                                                index,
+                                                e
+                                                    .target
+                                                    .value,
+                                            )
+                                        }
+                                        onKeyDown={(
+                                            e,
+                                        ) =>
+                                            handleKeyDown(
+                                                index,
+                                                e,
+                                            )
+                                        }
+                                        disabled={
+                                            processing
+                                        }
+                                        className="h-12 w-11 rounded-xl border border-slate-200 bg-slate-50 text-center text-xl font-bold text-slate-900 outline-none transition focus:border-blue-600 focus:bg-white focus:ring-4 focus:ring-blue-100 sm:h-14 sm:w-12"
+                                    />
+                                ),
+                            )}
 
                         </div>
 
-                        {/* ================================================== */}
-                        {/* FOOTER */}
-                        {/* ================================================== */}
+                        {/* TIMER */}
 
-                        <p className="mt-3 text-center text-[9px] text-slate-400">
-                            Electronic Document Tracking System
-                        </p>
+                        <div className="mt-5 text-center">
+
+                            {countdown >
+                            0 ? (
+                                <p className="text-xs text-slate-500">
+                                    Code expires in{' '}
+                                    <span className="font-semibold text-blue-700">
+                                        {
+                                            formattedTime
+                                        }
+                                    </span>
+                                </p>
+                            ) : (
+                                <p className="text-xs font-medium text-red-600">
+                                    Verification code expired.
+                                </p>
+                            )}
+
+                        </div>
+
+                        {/* VERIFY */}
+
+                        <button
+                            type="button"
+                            onClick={verify}
+                            disabled={
+                                processing ||
+                                otp.join(
+                                    '',
+                                ).length !==
+                                    6 ||
+                                countdown <=
+                                    0
+                            }
+                            className="mt-6 flex h-11 w-full items-center justify-center rounded-xl bg-[#0b5cab] font-semibold text-white transition hover:bg-[#084b8d] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {processing ? (
+                                <>
+                                    <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                                    Verifying...
+                                </>
+                            ) : (
+                                'Verify Recovery Code'
+                            )}
+                        </button>
+
+                        {/* RESEND */}
+
+                        <div className="mt-5 text-center">
+
+                            {countdown >
+                            0 ? (
+                                <p className="text-xs leading-5 text-slate-400">
+                                    Didn't receive the code?
+                                    <br />
+                                    You can request another code when the timer expires.
+                                </p>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={
+                                        resendOtp
+                                    }
+                                    disabled={
+                                        resending
+                                    }
+                                    className="text-xs font-semibold text-blue-700 hover:text-blue-800 disabled:opacity-50"
+                                >
+                                    {resending ? (
+                                        <>
+                                            <LoaderCircle className="mr-1 inline h-3 w-3 animate-spin" />
+                                            Sending...
+                                        </>
+                                    ) : (
+                                        'Resend verification code'
+                                    )}
+                                </button>
+                            )}
+
+                        </div>
+
+                        {/* BACK */}
+
+                        <div className="mt-6 border-t border-slate-100 pt-5 text-center">
+
+                            <button
+                                type="button"
+                                onClick={
+                                    goBack
+                                }
+                                className="inline-flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-800"
+                            >
+                                <ArrowLeft className="h-3.5 w-3.5" />
+
+                                Back to password recovery
+                            </button>
+
+                        </div>
 
                     </div>
 
-                </div>
+                </main>
 
             </div>
         </>
