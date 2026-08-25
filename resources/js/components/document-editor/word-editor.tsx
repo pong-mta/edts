@@ -1095,8 +1095,6 @@ export default function WordEditor({
                                                 setCellBackgroundColor(
                                                     event.target.value,
                                                 );
-
-                                                setShowCellColorPicker(false);
                                             }}
                                             className="block h-12 w-20 cursor-pointer rounded-md border border-slate-300 bg-white p-1"
                                             title="Choose cell color"
