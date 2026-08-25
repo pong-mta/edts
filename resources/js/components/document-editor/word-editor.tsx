@@ -141,10 +141,6 @@ export default function WordEditor({
                 class:
                     'word-document prose prose-slate max-w-none min-h-[960px] outline-none text-[11pt]',
             },
-
-            handleDOMEvents: {
-                // Keep the editor behaving like a normal document.
-            },
         },
 
         onUpdate: ({ editor }) => {
