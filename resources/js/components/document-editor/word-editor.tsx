@@ -196,6 +196,45 @@ export default function WordEditor({
         }
     };
 
+    const setCellBorderStyle = (
+        value: string | null,
+    ) => {
+        if (!editor) {
+            return;
+        }
+
+        const { state } = editor;
+        const { $from } = state.selection;
+
+        for (
+            let depth = $from.depth;
+            depth > 0;
+            depth--
+        ) {
+            const node = $from.node(depth);
+
+            if (
+                node.type.name === 'tableCell' ||
+                node.type.name === 'tableHeader'
+            ) {
+                const pos = $from.before(depth);
+
+                const tr = state.tr.setNodeMarkup(
+                    pos,
+                    undefined,
+                    {
+                        ...node.attrs,
+                        borderStyle: value,
+                    },
+                );
+
+                editor.view.dispatch(tr);
+
+                return;
+            }
+        }
+    };
+
     const setCellBackgroundColor = (
             value: string | null,
         ) => {
@@ -1289,6 +1328,33 @@ export default function WordEditor({
                                     px
                                 </span>
                             </div>
+
+                            <select
+                                defaultValue="solid"
+                                onChange={(event) => {
+                                    setCellBorderStyle(
+                                        event.target.value,
+                                    );
+                                }}
+                                className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500"
+                                title="Border style"
+                            >
+                                <option value="solid">
+                                    Solid
+                                </option>
+
+                                <option value="dashed">
+                                    Dashed
+                                </option>
+
+                                <option value="dotted">
+                                    Dotted
+                                </option>
+
+                                <option value="double">
+                                    Double
+                                </option>
+                            </select>
 
                             <ToolbarButton
                                 title="Delete table"

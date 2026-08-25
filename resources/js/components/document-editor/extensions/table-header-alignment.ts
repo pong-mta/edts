@@ -113,6 +113,32 @@ export const TableHeaderAlignment =
                         };
                     },
                 },
+
+                borderStyle: {
+                    default: null,
+
+                    parseHTML: (element) => {
+                        return (
+                            element.getAttribute(
+                                'data-border-style',
+                            ) || null
+                        );
+                    },
+
+                    renderHTML: (attributes) => {
+                        if (!attributes.borderStyle) {
+                            return {};
+                        }
+
+                        return {
+                            'data-border-style':
+                                attributes.borderStyle,
+
+                            style:
+                                `border-style: ${attributes.borderStyle};`,
+                        };
+                    },
+                },
             };
         },
     });
