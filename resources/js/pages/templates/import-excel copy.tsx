@@ -23,7 +23,6 @@ import JSZip from 'jszip';
 
 import {
     ExcelCell,
-    ExcelImage,
     ExcelMerge,
     ExcelSheet,
     ExcelWorkbook,
@@ -47,8 +46,9 @@ function xmlValue(
     }
 
     return (
-        element.getAttribute(attribute) ??
-        undefined
+        element.getAttribute(
+            attribute,
+        ) ?? undefined
     );
 }
 
@@ -86,8 +86,16 @@ function colorToHex(
         }
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Indexed Excel colors
+    |--------------------------------------------------------------------------
+    */
+
     const indexed =
-        color.getAttribute('indexed');
+        color.getAttribute(
+            'indexed',
+        );
 
     if (indexed !== null) {
         const indexedColors: Record<
@@ -388,6 +396,12 @@ function parseStylesXml(
                         'patternType',
                     );
 
+                /*
+                |--------------------------------------------------------------------------
+                | Ignore "none"
+                |--------------------------------------------------------------------------
+                */
+
                 if (
                     patternType &&
                     patternType !== 'none'
@@ -400,7 +414,9 @@ function parseStylesXml(
                             ),
                         );
 
-                    if (foreground) {
+                    if (
+                        foreground
+                    ) {
                         fill.backgroundColor =
                             foreground;
                     }
@@ -566,6 +582,12 @@ function parseStylesXml(
             const style: ParsedStyle =
                 {};
 
+            /*
+            |--------------------------------------------------------------------------
+            | Font
+            |--------------------------------------------------------------------------
+            */
+
             const fontId =
                 Number(
                     xf.getAttribute(
@@ -580,6 +602,12 @@ function parseStylesXml(
                     fonts[fontId];
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | Fill
+            |--------------------------------------------------------------------------
+            */
+
             const fillId =
                 Number(
                     xf.getAttribute(
@@ -593,6 +621,12 @@ function parseStylesXml(
                 style.fill =
                     fills[fillId];
             }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Border
+            |--------------------------------------------------------------------------
+            */
 
             const borderId =
                 Number(
@@ -609,6 +643,12 @@ function parseStylesXml(
                         borderId
                     ];
             }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Number format
+            |--------------------------------------------------------------------------
+            */
 
             const numFmtId =
                 Number(
@@ -636,6 +676,12 @@ function parseStylesXml(
                         numFmtId
                     ];
             }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Alignment
+            |--------------------------------------------------------------------------
+            */
 
             const alignment =
                 getFirstChild(
@@ -721,7 +767,10 @@ function parseStylesXml(
 
 function parseWorksheetStyles(
     xml: string,
-): Map<string, number> {
+): Map<
+    string,
+    number
+> {
     const parser =
         new DOMParser();
 
@@ -732,7 +781,10 @@ function parseWorksheetStyles(
         );
 
     const result =
-        new Map<string, number>();
+        new Map<
+            string,
+            number
+        >();
 
     const cells =
         Array.from(
@@ -794,7 +846,10 @@ function parseWorksheetDimensions(
         );
 
     const rowHeights =
-        new Map<number, number>();
+        new Map<
+            number,
+            number
+        >();
 
     rows.forEach((row) => {
         const rowNumber =
@@ -804,7 +859,9 @@ function parseWorksheetDimensions(
 
         const height =
             Number(
-                row.getAttribute('ht'),
+                row.getAttribute(
+                    'ht',
+                ),
             );
 
         if (
@@ -830,7 +887,10 @@ function parseWorksheetDimensions(
         );
 
     const columnWidths =
-        new Map<number, number>();
+        new Map<
+            number,
+            number
+        >();
 
     cols.forEach((column) => {
         const min =
@@ -855,9 +915,15 @@ function parseWorksheetDimensions(
             );
 
         if (
-            !Number.isFinite(min) ||
-            !Number.isFinite(max) ||
-            !Number.isFinite(width)
+            !Number.isFinite(
+                min,
+            ) ||
+            !Number.isFinite(
+                max,
+            ) ||
+            !Number.isFinite(
+                width,
+            )
         ) {
             return;
         }
@@ -986,690 +1052,6 @@ function applyStyle(
 
 /*
 |--------------------------------------------------------------------------
-| Image helpers
-|--------------------------------------------------------------------------
-*/
-
-function normalizePath(
-    path: string,
-): string {
-    return path
-        .replace(/\\/g, '/')
-        .replace(/^\/+/, '');
-}
-
-function resolveZipPath(
-    basePath: string,
-    target: string,
-): string {
-    if (
-        target.startsWith('/')
-    ) {
-        return normalizePath(
-            target,
-        );
-    }
-
-    const baseParts =
-        normalizePath(
-            basePath,
-        ).split('/');
-
-    baseParts.pop();
-
-    const targetParts =
-        target.split('/');
-
-    const result: string[] = [
-        ...baseParts,
-    ];
-
-    for (const part of targetParts) {
-        if (
-            !part ||
-            part === '.'
-        ) {
-            continue;
-        }
-
-        if (part === '..') {
-            result.pop();
-        } else {
-            result.push(part);
-        }
-    }
-
-    return normalizePath(
-        result.join('/'),
-    );
-}
-
-function getRelationshipTarget(
-    xml: string,
-    relationshipId: string,
-): string | undefined {
-    const parser =
-        new DOMParser();
-
-    const document =
-        parser.parseFromString(
-            xml,
-            'application/xml',
-        );
-
-    const relationships =
-        Array.from(
-            document.getElementsByTagName(
-                'Relationship',
-            ),
-        );
-
-    const relationship =
-        relationships.find(
-            (item) =>
-                item.getAttribute(
-                    'Id',
-                ) === relationshipId,
-        );
-
-    return (
-        relationship?.getAttribute(
-            'Target',
-        ) ?? undefined
-    );
-}
-
-function parsePixelsFromEmu(
-    value: number,
-): number {
-    /*
-     * 914400 EMUs = 1 inch
-     *
-     * 96 CSS pixels = 1 inch
-     */
-
-    return (
-        value *
-        (96 / 914400)
-    );
-}
-
-function parseImageAnchor(
-    anchor: Element,
-) {
-    const from =
-        getFirstChild(
-            anchor,
-            'from',
-        );
-
-    const to =
-        getFirstChild(
-            anchor,
-            'to',
-        );
-
-    const col =
-        Number(
-            getFirstChild(
-                from,
-                'col',
-            )?.textContent ??
-                '0',
-        );
-
-    const row =
-        Number(
-            getFirstChild(
-                from,
-                'row',
-            )?.textContent ??
-                '0',
-        );
-
-    const colOffset =
-        Number(
-            getFirstChild(
-                from,
-                'colOff',
-            )?.textContent ??
-                '0',
-        );
-
-    const rowOffset =
-        Number(
-            getFirstChild(
-                from,
-                'rowOff',
-            )?.textContent ??
-                '0',
-        );
-
-    let width = 120;
-    let height = 80;
-
-    /*
-    |--------------------------------------------------------------------------
-    | Two-cell anchor
-    |--------------------------------------------------------------------------
-    */
-
-    if (to) {
-        const toCol =
-            Number(
-                getFirstChild(
-                    to,
-                    'col',
-                )?.textContent ??
-                    String(col),
-            );
-
-        const toRow =
-            Number(
-                getFirstChild(
-                    to,
-                    'row',
-                )?.textContent ??
-                    String(row),
-            );
-
-        const toColOffset =
-            Number(
-                getFirstChild(
-                    to,
-                    'colOff',
-                )?.textContent ??
-                    '0',
-            );
-
-        const toRowOffset =
-            Number(
-                getFirstChild(
-                    to,
-                    'rowOff',
-                )?.textContent ??
-                    '0',
-            );
-
-        /*
-         * Approximate using standard
-         * Excel column/row dimensions.
-         *
-         * The editor can later refine
-         * this against actual sheet
-         * dimensions.
-         */
-
-        const startX =
-            col * 100 +
-            parsePixelsFromEmu(
-                colOffset,
-            );
-
-        const endX =
-            toCol * 100 +
-            parsePixelsFromEmu(
-                toColOffset,
-            );
-
-        const startY =
-            row * 28 +
-            parsePixelsFromEmu(
-                rowOffset,
-            );
-
-        const endY =
-            toRow * 28 +
-            parsePixelsFromEmu(
-                toRowOffset,
-            );
-
-        width =
-            Math.max(
-                20,
-                endX - startX,
-            );
-
-        height =
-            Math.max(
-                20,
-                endY - startY,
-            );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | One-cell anchor
-    |--------------------------------------------------------------------------
-    */
-
-    const ext =
-        getFirstChild(
-            anchor,
-            'ext',
-        );
-
-    if (ext) {
-        const cx =
-            Number(
-                ext.getAttribute(
-                    'cx',
-                ) ?? '0',
-            );
-
-        const cy =
-            Number(
-                ext.getAttribute(
-                    'cy',
-                ) ?? '0',
-            );
-
-        if (
-            Number.isFinite(cx) &&
-            cx > 0
-        ) {
-            width =
-                parsePixelsFromEmu(
-                    cx,
-                );
-        }
-
-        if (
-            Number.isFinite(cy) &&
-            cy > 0
-        ) {
-            height =
-                parsePixelsFromEmu(
-                    cy,
-                );
-        }
-    }
-
-    return {
-        row,
-        column: col,
-        offsetX:
-            parsePixelsFromEmu(
-                colOffset,
-            ),
-        offsetY:
-            parsePixelsFromEmu(
-                rowOffset,
-            ),
-        width,
-        height,
-    };
-}
-
-/*
-|--------------------------------------------------------------------------
-| Extract Excel images from drawing XML
-|--------------------------------------------------------------------------
-*/
-
-async function extractSheetImages(
-    zip: JSZip,
-    sheetIndex: number,
-    sheetName: string,
-): Promise<ExcelImage[]> {
-    const images: ExcelImage[] =
-        [];
-
-    /*
-    |--------------------------------------------------------------------------
-    | Worksheet relationship file
-    |--------------------------------------------------------------------------
-    */
-
-    const worksheetRelsPath =
-        `xl/worksheets/_rels/sheet${
-            sheetIndex + 1
-        }.xml.rels`;
-
-    const worksheetRelsFile =
-        zip.file(
-            worksheetRelsPath,
-        );
-
-    if (!worksheetRelsFile) {
-        console.log(
-            `${sheetName}: no worksheet relationships`,
-        );
-
-        return images;
-    }
-
-    const worksheetRelsXml =
-        await worksheetRelsFile.async(
-            'text',
-        );
-
-    /*
-    |--------------------------------------------------------------------------
-    | Find drawing relationship
-    |--------------------------------------------------------------------------
-    */
-
-    const relParser =
-        new DOMParser();
-
-    const relDocument =
-        relParser.parseFromString(
-            worksheetRelsXml,
-            'application/xml',
-        );
-
-    const relationships =
-        Array.from(
-            relDocument.getElementsByTagName(
-                'Relationship',
-            ),
-        );
-
-    const drawingRelationship =
-        relationships.find(
-            (relationship) => {
-                const type =
-                    relationship.getAttribute(
-                        'Type',
-                    ) ?? '';
-
-                return type.includes(
-                    '/drawing',
-                );
-            },
-        );
-
-    if (!drawingRelationship) {
-        console.log(
-            `${sheetName}: no drawing relationship`,
-        );
-
-        return images;
-    }
-
-    const drawingTarget =
-        drawingRelationship.getAttribute(
-            'Target',
-        );
-
-    if (!drawingTarget) {
-        return images;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Resolve drawing path
-    |--------------------------------------------------------------------------
-    */
-
-    const drawingPath =
-        resolveZipPath(
-            `xl/worksheets/sheet${
-                sheetIndex + 1
-            }.xml`,
-            drawingTarget,
-        );
-
-    const drawingFile =
-        zip.file(
-            drawingPath,
-        );
-
-    if (!drawingFile) {
-        console.warn(
-            `${sheetName}: drawing file not found`,
-            drawingPath,
-        );
-
-        return images;
-    }
-
-    const drawingXml =
-        await drawingFile.async(
-            'text',
-        );
-
-    /*
-    |--------------------------------------------------------------------------
-    | Drawing relationships
-    |--------------------------------------------------------------------------
-    */
-
-    const drawingParts =
-        drawingPath.split('/');
-
-    const drawingFileName =
-        drawingParts.pop() ??
-        '';
-
-    const drawingDirectory =
-        drawingParts.join('/');
-
-    const drawingRelsPath =
-        `${drawingDirectory}/_rels/${drawingFileName}.rels`;
-
-    const drawingRelsFile =
-        zip.file(
-            drawingRelsPath,
-        );
-
-    if (!drawingRelsFile) {
-        console.warn(
-            `${sheetName}: drawing relationships not found`,
-            drawingRelsPath,
-        );
-
-        return images;
-    }
-
-    const drawingRelsXml =
-        await drawingRelsFile.async(
-            'text',
-        );
-
-    /*
-    |--------------------------------------------------------------------------
-    | Parse drawing
-    |--------------------------------------------------------------------------
-    */
-
-    const drawingParser =
-        new DOMParser();
-
-    const drawingDocument =
-        drawingParser.parseFromString(
-            drawingXml,
-            'application/xml',
-        );
-
-    const anchors = [
-        ...Array.from(
-            drawingDocument.getElementsByTagName(
-                'twoCellAnchor',
-            ),
-        ),
-        ...Array.from(
-            drawingDocument.getElementsByTagName(
-                'oneCellAnchor',
-            ),
-        ),
-    ];
-
-    for (
-        let index = 0;
-        index < anchors.length;
-        index++
-    ) {
-        const anchor =
-            anchors[index];
-
-        /*
-        |--------------------------------------------------------------------------
-        | Find image relationship
-        |--------------------------------------------------------------------------
-        */
-
-        const blip =
-            Array.from(
-                anchor.getElementsByTagName(
-                    'blip',
-                ),
-            )[0];
-
-        if (!blip) {
-            continue;
-        }
-
-        const embed =
-            blip.getAttribute(
-                'r:embed',
-            ) ??
-            blip.getAttribute(
-                'embed',
-            );
-
-        if (!embed) {
-            continue;
-        }
-
-        const target =
-            getRelationshipTarget(
-                drawingRelsXml,
-                embed,
-            );
-
-        if (!target) {
-            continue;
-        }
-
-        const imagePath =
-            resolveZipPath(
-                drawingPath,
-                target,
-            );
-
-        const imageFile =
-            zip.file(
-                imagePath,
-            );
-
-        if (!imageFile) {
-            console.warn(
-                `${sheetName}: image file not found`,
-                imagePath,
-            );
-
-            continue;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Determine image MIME type
-        |--------------------------------------------------------------------------
-        */
-
-        const extension =
-            imagePath
-                .split('.')
-                .pop()
-                ?.toLowerCase();
-
-        let mimeType =
-            'image/png';
-
-        if (
-            extension === 'jpg' ||
-            extension === 'jpeg'
-        ) {
-            mimeType =
-                'image/jpeg';
-        } else if (
-            extension === 'gif'
-        ) {
-            mimeType =
-                'image/gif';
-        } else if (
-            extension === 'bmp'
-        ) {
-            mimeType =
-                'image/bmp';
-        } else if (
-            extension === 'svg'
-        ) {
-            mimeType =
-                'image/svg+xml';
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Convert binary image to data URL
-        |--------------------------------------------------------------------------
-        */
-
-        const base64 =
-            await imageFile.async(
-                'base64',
-            );
-
-        const src =
-            `data:${mimeType};base64,${base64}`;
-
-        /*
-        |--------------------------------------------------------------------------
-        | Position
-        |--------------------------------------------------------------------------
-        */
-
-        const position =
-            parseImageAnchor(
-                anchor,
-            );
-
-        const image: ExcelImage = {
-            id: `${sheetName}-image-${
-                index + 1
-            }`,
-
-            src,
-
-            row:
-                position.row,
-
-            column:
-                position.column,
-
-            width:
-                position.width,
-
-            height:
-                position.height,
-
-            offsetX:
-                position.offsetX,
-
-            offsetY:
-                position.offsetY,
-        };
-
-        images.push(image);
-
-        console.log(
-            `${sheetName}: IMAGE IMPORTED`,
-            image,
-        );
-    }
-
-    console.log(
-        `${sheetName}: TOTAL IMAGES`,
-        images.length,
-    );
-
-    return images;
-}
-
-/*
-|--------------------------------------------------------------------------
 | Main component
 |--------------------------------------------------------------------------
 */
@@ -1790,6 +1172,12 @@ export default function ImportExcel() {
                     );
             }
 
+            /*
+            |--------------------------------------------------------------------------
+            | Debug styles
+            |--------------------------------------------------------------------------
+            */
+
             console.log(
                 'EDTS PARSED STYLES:',
                 parsedStyles,
@@ -1797,11 +1185,11 @@ export default function ImportExcel() {
 
             /*
             |--------------------------------------------------------------------------
-            | Convert raw worksheet XML
+            | Convert sheets
             |--------------------------------------------------------------------------
             */
 
-            const sheets: Promise<any>[] =
+            const sheets: ExcelSheet[] =
                 sourceWorkbook.SheetNames.map(
                     (
                         sheetName,
@@ -1813,6 +1201,12 @@ export default function ImportExcel() {
                                 sheetName
                             ];
 
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Raw worksheet XML
+                        |--------------------------------------------------------------------------
+                        */
+
                         const worksheetPath =
                             `xl/worksheets/sheet${
                                 sheetIndex + 1
@@ -1822,6 +1216,12 @@ export default function ImportExcel() {
                             zip.file(
                                 worksheetPath,
                             );
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Style index map
+                        |--------------------------------------------------------------------------
+                        */
 
                         let styleIndexes =
                             new Map<
@@ -1884,6 +1284,12 @@ export default function ImportExcel() {
                     },
                 );
 
+            /*
+            |--------------------------------------------------------------------------
+            | Promise.all because raw XML is async
+            |--------------------------------------------------------------------------
+            */
+
             const rawSheets =
                 await Promise.all(
                     sheets,
@@ -1896,457 +1302,465 @@ export default function ImportExcel() {
             */
 
             const edtsSheets: ExcelSheet[] =
-                [];
+                sourceWorkbook.SheetNames.map(
+                    (
+                        sheetName,
+                        sheetIndex,
+                    ) => {
+                        const worksheet =
+                            sourceWorkbook
+                                .Sheets[
+                                sheetName
+                            ];
 
-            for (
-                let sheetIndex = 0;
-                sheetIndex <
-                sourceWorkbook.SheetNames
-                    .length;
-                sheetIndex++
-            ) {
-                const sheetName =
-                    sourceWorkbook
-                        .SheetNames[
-                        sheetIndex
-                    ];
+                        const raw =
+                            rawSheets[
+                                sheetIndex
+                            ];
 
-                const worksheet =
-                    sourceWorkbook
-                        .Sheets[
-                        sheetName
-                    ];
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Range
+                        |--------------------------------------------------------------------------
+                        */
 
-                const raw =
-                    rawSheets[
-                        sheetIndex
-                    ];
+                        const range =
+                            worksheet[
+                                '!ref'
+                            ];
 
-                /*
-                |--------------------------------------------------------------------------
-                | Range
-                |--------------------------------------------------------------------------
-                */
+                        let startRow =
+                            0;
 
-                const range =
-                    worksheet[
-                        '!ref'
-                    ];
+                        let startColumn =
+                            0;
 
-                let startRow = 0;
-                let startColumn = 0;
-                let endRow = 0;
-                let endColumn = 0;
+                        let endRow =
+                            0;
 
-                if (range) {
-                    const decoded =
-                        XLSX.utils.decode_range(
-                            range,
-                        );
+                        let endColumn =
+                            0;
 
-                    startRow =
-                        decoded.s.r;
+                        if (range) {
+                            const decoded =
+                                XLSX.utils.decode_range(
+                                    range,
+                                );
 
-                    startColumn =
-                        decoded.s.c;
+                            startRow =
+                                decoded.s.r;
 
-                    endRow =
-                        decoded.e.r;
+                            startColumn =
+                                decoded.s.c;
 
-                    endColumn =
-                        decoded.e.c;
-                }
+                            endRow =
+                                decoded.e.r;
 
-                const rowCount =
-                    Math.max(
-                        endRow -
-                            startRow +
-                            1,
-                        1,
-                    );
+                            endColumn =
+                                decoded.e.c;
+                        }
 
-                const columnCount =
-                    Math.max(
-                        endColumn -
-                            startColumn +
-                            1,
-                        1,
-                    );
+                        const rowCount =
+                            Math.max(
+                                endRow -
+                                    startRow +
+                                    1,
+                                1,
+                            );
 
-                /*
-                |--------------------------------------------------------------------------
-                | Cells
-                |--------------------------------------------------------------------------
-                */
+                        const columnCount =
+                            Math.max(
+                                endColumn -
+                                    startColumn +
+                                    1,
+                                1,
+                            );
 
-                const cells: ExcelCell[][] =
-                    Array.from(
-                        {
-                            length:
-                                rowCount,
-                        },
-                        () =>
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Cells
+                        |--------------------------------------------------------------------------
+                        */
+
+                        const cells: ExcelCell[][] =
+                            Array.from(
+                                {
+                                    length:
+                                        rowCount,
+                                },
+                                () =>
+                                    Array.from(
+                                        {
+                                            length:
+                                                columnCount,
+                                        },
+                                        () => ({
+                                            value: '',
+                                        }),
+                                    ),
+                            );
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Read cells
+                        |--------------------------------------------------------------------------
+                        */
+
+                        for (
+                            let row =
+                                startRow;
+                            row <=
+                            endRow;
+                            row++
+                        ) {
+                            for (
+                                let column =
+                                    startColumn;
+                                column <=
+                                endColumn;
+                                column++
+                            ) {
+                                const address =
+                                    XLSX.utils.encode_cell(
+                                        {
+                                            r: row,
+                                            c: column,
+                                        },
+                                    );
+
+                                const sourceCell =
+                                    worksheet[
+                                        address
+                                    ];
+
+                                if (
+                                    !sourceCell
+                                ) {
+                                    continue;
+                                }
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Base cell
+                                |--------------------------------------------------------------------------
+                                */
+
+                                const cell: ExcelCell =
+                                    {
+                                        value:
+                                            sourceCell.v !==
+                                                undefined &&
+                                            sourceCell.v !==
+                                                null
+                                                ? String(
+                                                      sourceCell.v,
+                                                  )
+                                                : '',
+                                    };
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Formula
+                                |--------------------------------------------------------------------------
+                                */
+
+                                if (
+                                    sourceCell.f
+                                ) {
+                                    cell.formula =
+                                        String(
+                                            sourceCell.f,
+                                        );
+                                }
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Number format
+                                |--------------------------------------------------------------------------
+                                */
+
+                                if (
+                                    typeof sourceCell.z ===
+                                    'string'
+                                ) {
+                                    cell.numberFormat =
+                                        sourceCell.z;
+                                }
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Raw XML style index
+                                |--------------------------------------------------------------------------
+                                */
+
+                                const styleIndex =
+                                    raw.styleIndexes.get(
+                                        address,
+                                    ) ?? 0;
+
+                                const parsedStyle =
+                                    parsedStyles
+                                        .styles[
+                                        styleIndex
+                                    ];
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Apply actual Excel style
+                                |--------------------------------------------------------------------------
+                                */
+
+                                applyStyle(
+                                    cell,
+                                    parsedStyle,
+                                );
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Debug A1
+                                |--------------------------------------------------------------------------
+                                */
+
+                                if (
+                                    address ===
+                                    'A1'
+                                ) {
+                                    console.log(
+                                        'RAW A1 STYLE INDEX:',
+                                        styleIndex,
+                                    );
+
+                                    console.log(
+                                        'RAW A1 PARSED STYLE:',
+                                        parsedStyle,
+                                    );
+
+                                    console.log(
+                                        'FINAL A1:',
+                                        cell,
+                                    );
+                                }
+
+                                cells[
+                                    row -
+                                        startRow
+                                ][
+                                    column -
+                                        startColumn
+                                ] =
+                                    cell;
+                            }
+                        }
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Column widths
+                        |--------------------------------------------------------------------------
+                        */
+
+                        const columnWidths =
                             Array.from(
                                 {
                                     length:
                                         columnCount,
                                 },
-                                () => ({
-                                    value: '',
-                                }),
-                            ),
-                    );
+                                (
+                                    _,
+                                    index,
+                                ) => {
+                                    const rawWidth =
+                                        raw
+                                            .rawDimensions
+                                            .columnWidths.get(
+                                                index +
+                                                    1,
+                                            );
 
-                /*
-                |--------------------------------------------------------------------------
-                | Read cells
-                |--------------------------------------------------------------------------
-                */
+                                    if (
+                                        rawWidth
+                                    ) {
+                                        return rawWidth;
+                                    }
 
-                for (
-                    let row =
-                        startRow;
-                    row <= endRow;
-                    row++
-                ) {
-                    for (
-                        let column =
-                            startColumn;
-                        column <=
-                        endColumn;
-                        column++
-                    ) {
-                        const address =
-                            XLSX.utils.encode_cell(
-                                {
-                                    r: row,
-                                    c: column,
+                                    const column =
+                                        worksheet[
+                                            '!cols'
+                                        ]?.[
+                                            index
+                                        ];
+
+                                    if (
+                                        column
+                                    ) {
+                                        if (
+                                            typeof column.wpx ===
+                                            'number'
+                                        ) {
+                                            return column.wpx;
+                                        }
+
+                                        if (
+                                            typeof column.wch ===
+                                            'number'
+                                        ) {
+                                            return (
+                                                column.wch *
+                                                7
+                                            );
+                                        }
+                                    }
+
+                                    return 100;
                                 },
                             );
 
-                        const sourceCell =
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Row heights
+                        |--------------------------------------------------------------------------
+                        */
+
+                        const rowHeights =
+                            Array.from(
+                                {
+                                    length:
+                                        rowCount,
+                                },
+                                (
+                                    _,
+                                    index,
+                                ) => {
+                                    const rawHeight =
+                                        raw
+                                            .rawDimensions
+                                            .rowHeights.get(
+                                                index +
+                                                    1,
+                                            );
+
+                                    if (
+                                        rawHeight
+                                    ) {
+                                        return rawHeight;
+                                    }
+
+                                    const row =
+                                        worksheet[
+                                            '!rows'
+                                        ]?.[
+                                            index
+                                        ];
+
+                                    if (
+                                        row
+                                    ) {
+                                        if (
+                                            typeof row.hpx ===
+                                            'number'
+                                        ) {
+                                            return row.hpx;
+                                        }
+
+                                        if (
+                                            typeof row.hpt ===
+                                            'number'
+                                        ) {
+                                            return (
+                                                row.hpt *
+                                                1.333333
+                                            );
+                                        }
+                                    }
+
+                                    return 28;
+                                },
+                            );
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Merged cells
+                        |--------------------------------------------------------------------------
+                        */
+
+                        const mergedCells: ExcelMerge[] =
+                            [];
+
+                        const merges =
                             worksheet[
-                                address
+                                '!merges'
                             ];
 
                         if (
-                            !sourceCell
+                            Array.isArray(
+                                merges,
+                            )
                         ) {
-                            continue;
-                        }
+                            merges.forEach(
+                                (
+                                    merge,
+                                ) => {
+                                    mergedCells.push(
+                                        {
+                                            startRow:
+                                                merge
+                                                    .s
+                                                    .r -
+                                                startRow,
 
-                        const cell: ExcelCell =
-                            {
-                                value:
-                                    sourceCell.v !==
-                                        undefined &&
-                                    sourceCell.v !==
-                                        null
-                                        ? String(
-                                              sourceCell.v,
-                                          )
-                                        : '',
-                            };
+                                            startColumn:
+                                                merge
+                                                    .s
+                                                    .c -
+                                                startColumn,
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Formula
-                        |--------------------------------------------------------------------------
-                        */
+                                            endRow:
+                                                merge
+                                                    .e
+                                                    .r -
+                                                startRow,
 
-                        if (
-                            sourceCell.f
-                        ) {
-                            cell.formula =
-                                String(
-                                    sourceCell.f,
-                                );
-                        }
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Number format
-                        |--------------------------------------------------------------------------
-                        */
-
-                        if (
-                            typeof sourceCell.z ===
-                            'string'
-                        ) {
-                            cell.numberFormat =
-                                sourceCell.z;
-                        }
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Raw XML style index
-                        |--------------------------------------------------------------------------
-                        */
-
-                        const styleIndex =
-                            raw.styleIndexes.get(
-                                address,
-                            ) ?? 0;
-
-                        const parsedStyle =
-                            parsedStyles
-                                .styles[
-                                styleIndex
-                            ];
-
-                        applyStyle(
-                            cell,
-                            parsedStyle,
-                        );
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Debug A1
-                        |--------------------------------------------------------------------------
-                        */
-
-                        if (
-                            address ===
-                            'A1'
-                        ) {
-                            console.log(
-                                'RAW A1 STYLE INDEX:',
-                                styleIndex,
-                            );
-
-                            console.log(
-                                'RAW A1 PARSED STYLE:',
-                                parsedStyle,
-                            );
-
-                            console.log(
-                                'FINAL A1:',
-                                cell,
-                            );
-                        }
-
-                        cells[
-                            row -
-                                startRow
-                        ][
-                            column -
-                                startColumn
-                        ] = cell;
-                    }
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | Column widths
-                |--------------------------------------------------------------------------
-                */
-
-                const columnWidths =
-                    Array.from(
-                        {
-                            length:
-                                columnCount,
-                        },
-                        (
-                            _,
-                            index,
-                        ) => {
-                            const rawWidth =
-                                raw
-                                    .rawDimensions
-                                    .columnWidths.get(
-                                        index +
-                                            1,
+                                            endColumn:
+                                                merge
+                                                    .e
+                                                    .c -
+                                                startColumn,
+                                        },
                                     );
-
-                            if (
-                                rawWidth
-                            ) {
-                                return rawWidth;
-                            }
-
-                            const column =
-                                worksheet[
-                                    '!cols'
-                                ]?.[
-                                    index
-                                ];
-
-                            if (
-                                column
-                            ) {
-                                if (
-                                    typeof column.wpx ===
-                                    'number'
-                                ) {
-                                    return column.wpx;
-                                }
-
-                                if (
-                                    typeof column.wch ===
-                                    'number'
-                                ) {
-                                    return (
-                                        column.wch *
-                                        7
-                                    );
-                                }
-                            }
-
-                            return 100;
-                        },
-                    );
-
-                /*
-                |--------------------------------------------------------------------------
-                | Row heights
-                |--------------------------------------------------------------------------
-                */
-
-                const rowHeights =
-                    Array.from(
-                        {
-                            length:
-                                rowCount,
-                        },
-                        (
-                            _,
-                            index,
-                        ) => {
-                            const rawHeight =
-                                raw
-                                    .rawDimensions
-                                    .rowHeights.get(
-                                        index +
-                                            1,
-                                    );
-
-                            if (
-                                rawHeight
-                            ) {
-                                return rawHeight;
-                            }
-
-                            const row =
-                                worksheet[
-                                    '!rows'
-                                ]?.[
-                                    index
-                                ];
-
-                            if (
-                                row
-                            ) {
-                                if (
-                                    typeof row.hpx ===
-                                    'number'
-                                ) {
-                                    return row.hpx;
-                                }
-
-                                if (
-                                    typeof row.hpt ===
-                                    'number'
-                                ) {
-                                    return (
-                                        row.hpt *
-                                        1.333333
-                                    );
-                                }
-                            }
-
-                            return 28;
-                        },
-                    );
-
-                /*
-                |--------------------------------------------------------------------------
-                | Merged cells
-                |--------------------------------------------------------------------------
-                */
-
-                const mergedCells: ExcelMerge[] =
-                    [];
-
-                const merges =
-                    worksheet[
-                        '!merges'
-                    ];
-
-                if (
-                    Array.isArray(
-                        merges,
-                    )
-                ) {
-                    merges.forEach(
-                        (
-                            merge,
-                        ) => {
-                            mergedCells.push(
-                                {
-                                    startRow:
-                                        merge
-                                            .s
-                                            .r -
-                                        startRow,
-
-                                    startColumn:
-                                        merge
-                                            .s
-                                            .c -
-                                        startColumn,
-
-                                    endRow:
-                                        merge
-                                            .e
-                                            .r -
-                                        startRow,
-
-                                    endColumn:
-                                        merge
-                                            .e
-                                            .c -
-                                        startColumn,
                                 },
                             );
-                        },
-                    );
-                }
+                        }
 
-                /*
-                |--------------------------------------------------------------------------
-                | Images
-                |--------------------------------------------------------------------------
-                */
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Images
+                        |--------------------------------------------------------------------------
+                        */
 
-                const images =
-                    await extractSheetImages(
-                        zip,
-                        sheetIndex,
-                        sheetName,
-                    );
+                        const images: any[] =
+                            [];
 
-                /*
-                |--------------------------------------------------------------------------
-                | Build sheet
-                |--------------------------------------------------------------------------
-                */
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Return sheet
+                        |--------------------------------------------------------------------------
+                        */
 
-                edtsSheets.push({
-                    name:
-                        sheetName,
+                        return {
+                            name:
+                                sheetName,
 
-                    cells,
+                            cells,
 
-                    columnWidths,
+                            columnWidths,
 
-                    rowHeights,
+                            rowHeights,
 
-                    mergedCells,
+                            mergedCells,
 
-                    images,
-                });
-            }
+                            images,
+                        };
+                    },
+                );
 
             /*
             |--------------------------------------------------------------------------
@@ -2382,18 +1796,6 @@ export default function ImportExcel() {
                 edtsWorkbook
                     .sheets[0]
                     ?.cells[0]?.[0],
-            );
-
-            console.log(
-                'EDTS IMAGES:',
-                edtsWorkbook.sheets.map(
-                    (sheet) => ({
-                        sheet:
-                            sheet.name,
-                        images:
-                            sheet.images,
-                    }),
-                ),
             );
 
             /*
@@ -2722,9 +2124,7 @@ export default function ImportExcel() {
                         </p>
 
                     </div>
-
                 </div>
-
             </div>
         </AppLayout>
     );
