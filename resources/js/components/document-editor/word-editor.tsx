@@ -240,105 +240,7 @@ export default function WordEditor({
         }
     };
 
-    const setCellBorderSide = (
-        side:
-            | 'top'
-            | 'right'
-            | 'bottom'
-            | 'left'
-            | 'all'
-            | 'none',
-    ) => {
-        if (!editor) {
-            return;
-        }
-
-        const { state } = editor;
-        const { $from } = state.selection;
-
-        for (
-            let depth = $from.depth;
-            depth > 0;
-            depth--
-        ) {
-            const node = $from.node(depth);
-
-            if (
-                node.type.name === 'tableCell' ||
-                node.type.name === 'tableHeader'
-            ) {
-                const pos = $from.before(depth);
-
-                const width =
-                    node.attrs.borderWidth || 1;
-
-                const style =
-                    node.attrs.borderStyle || 'solid';
-
-                const color =
-                    node.attrs.borderColor || '#000000';
-
-                const border =
-                    `${width}px ${style} ${color}`;
-
-                const updates: Record<
-                    string,
-                    string | null
-                > = {
-                    borderTop:
-                        node.attrs.borderTop,
-                    borderRight:
-                        node.attrs.borderRight,
-                    borderBottom:
-                        node.attrs.borderBottom,
-                    borderLeft:
-                        node.attrs.borderLeft,
-                };
-
-                if (side === 'all') {
-                    updates.borderTop = border;
-                    updates.borderRight = border;
-                    updates.borderBottom = border;
-                    updates.borderLeft = border;
-                }
-
-                if (side === 'none') {
-                    updates.borderTop = null;
-                    updates.borderRight = null;
-                    updates.borderBottom = null;
-                    updates.borderLeft = null;
-                }
-
-                if (
-                    side !== 'all' &&
-                    side !== 'none'
-                ) {
-                    const key =
-                        `border${
-                            side
-                                .charAt(0)
-                                .toUpperCase()
-                        }${side.slice(1)}`;
-
-                    updates[key] = border;
-                }
-
-                const tr =
-                    state.tr.setNodeMarkup(
-                        pos,
-                        undefined,
-                        {
-                            ...node.attrs,
-                            ...updates,
-                        },
-                    );
-
-                editor.view.dispatch(tr);
-
-                return;
-            }
-        }
-    };
+    
 
     const setCellBackgroundColor = (
             value: string | null,
@@ -1483,46 +1385,7 @@ export default function WordEditor({
                                 </option>
                             </select>
 
-                            <select
-                                defaultValue="all"
-                                onChange={(event) => {
-                                    setCellBorderSide(
-                                        event.target.value as
-                                            | 'top'
-                                            | 'right'
-                                            | 'bottom'
-                                            | 'left'
-                                            | 'all'
-                                            | 'none',
-                                    );
-                                }}
-                                className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500"
-                                title="Border sides"
-                            >
-                                <option value="all">
-                                    All Borders
-                                </option>
-
-                                <option value="top">
-                                    Top Border
-                                </option>
-
-                                <option value="right">
-                                    Right Border
-                                </option>
-
-                                <option value="bottom">
-                                    Bottom Border
-                                </option>
-
-                                <option value="left">
-                                    Left Border
-                                </option>
-
-                                <option value="none">
-                                    No Borders
-                                </option>
-                            </select>
+                            
 
                             <ToolbarButton
                                 title="Delete table"
