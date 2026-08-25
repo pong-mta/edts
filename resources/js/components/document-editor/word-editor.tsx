@@ -119,6 +119,8 @@ export default function WordEditor({
 
     const [showCellColorPicker, setShowCellColorPicker] =
     useState(false);
+    const [selectedCellColor, setSelectedCellColor] =
+    useState('#ffffff');
 
     const [showBorderColorPicker, setShowBorderColorPicker] =
     useState(false);
@@ -238,6 +240,9 @@ export default function WordEditor({
             if (!editor) {
                 return;
             }
+            setSelectedCellColor(
+                value || '#ffffff',
+            );
 
             const { state } = editor;
             const { $from } = state.selection;
@@ -425,6 +430,11 @@ export default function WordEditor({
                 Object.keys(cellAttributes).length
                     ? cellAttributes
                     : headerAttributes;
+
+            setSelectedCellColor(
+                attributes.backgroundColor ||
+                    '#ffffff',
+            );
 
             setBorderWidth(
                 attributes.borderWidth
@@ -1229,7 +1239,7 @@ export default function WordEditor({
 
                                         <input
                                             type="color"
-                                            value="#ffffff"
+                                            value={selectedCellColor}
                                             onChange={(event) => {
                                                 setCellBackgroundColor(
                                                     event.target.value,
