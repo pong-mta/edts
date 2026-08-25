@@ -363,8 +363,7 @@
 
 .word-document td,
 .word-document th {
-    height: 40px;
-    min-height: 40px;
-    padding: 8px;
+    min-height: 24px;
+    height: 24px;
     vertical-align: top;
 }
