@@ -462,11 +462,12 @@ export default function ExcelEditor({
     |--------------------------------------------------------------------------
     */
 
+    const EMU_PER_PIXEL = 9525;
+
     const getImagePosition = (
         image: ExcelImage,
     ) => {
-        let left =
-            ROW_HEADER_WIDTH;
+        let left = ROW_HEADER_WIDTH;
 
         for (
             let col = 0;
@@ -477,9 +478,6 @@ export default function ExcelEditor({
                 columnWidths[col] ??
                 DEFAULT_COLUMN_WIDTH;
         }
-
-        left +=
-            image.offsetX ?? 0;
 
         let top = 0;
 
@@ -493,12 +491,24 @@ export default function ExcelEditor({
                 DEFAULT_ROW_HEIGHT;
         }
 
-        top +=
-            image.offsetY ?? 0;
+        /*
+        * Excel drawing offsets are EMUs.
+        * Convert them to CSS pixels.
+        */
+        const offsetX =
+            (image.offsetX ?? 0) /
+            EMU_PER_PIXEL;
+
+        const offsetY =
+            (image.offsetY ?? 0) /
+            EMU_PER_PIXEL;
 
         return {
-            left,
-            top,
+            left:
+                left + offsetX,
+
+            top:
+                top + offsetY,
         };
     };
 
