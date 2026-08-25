@@ -377,16 +377,3 @@
     position: relative;
 }
 
-.word-document .row-resize-handle {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -3px;
-    height: 6px;
-    cursor: row-resize;
-    z-index: 20;
-}
-
-.word-document .row-resize-handle:hover {
-    background: rgba(37, 99, 235, 0.35);
-}
