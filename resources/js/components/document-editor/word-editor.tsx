@@ -1090,17 +1090,15 @@ export default function WordEditor({
 
                                         <input
                                             type="color"
-                                            defaultValue="#ffffff"
+                                            value="#ffffff"
                                             onChange={(event) => {
                                                 setCellBackgroundColor(
                                                     event.target.value,
                                                 );
 
-                                                setShowCellColorPicker(
-                                                    false,
-                                                );
+                                                setShowCellColorPicker(false);
                                             }}
-                                            className="h-10 w-16 cursor-pointer rounded border border-slate-300"
+                                            className="block h-12 w-20 cursor-pointer rounded-md border border-slate-300 bg-white p-1"
                                             title="Choose cell color"
                                         />
 
