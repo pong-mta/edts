@@ -139,6 +139,110 @@ export const TableHeaderAlignment =
                         };
                     },
                 },
+
+                borderTop: {
+                    default: null,
+
+                    parseHTML: (element) => {
+                        return (
+                            element.getAttribute(
+                                'data-border-top',
+                            ) || null
+                        );
+                    },
+
+                    renderHTML: (attributes) => {
+                        if (!attributes.borderTop) {
+                            return {};
+                        }
+
+                        return {
+                            'data-border-top':
+                                attributes.borderTop,
+
+                            style:
+                                `border-top: ${attributes.borderTop};`,
+                        };
+                    },
+                },
+
+                borderRight: {
+                    default: null,
+
+                    parseHTML: (element) => {
+                        return (
+                            element.getAttribute(
+                                'data-border-right',
+                            ) || null
+                        );
+                    },
+
+                    renderHTML: (attributes) => {
+                        if (!attributes.borderRight) {
+                            return {};
+                        }
+
+                        return {
+                            'data-border-right':
+                                attributes.borderRight,
+
+                            style:
+                                `border-right: ${attributes.borderRight};`,
+                        };
+                    },
+                },
+
+                borderBottom: {
+                    default: null,
+
+                    parseHTML: (element) => {
+                        return (
+                            element.getAttribute(
+                                'data-border-bottom',
+                            ) || null
+                        );
+                    },
+
+                    renderHTML: (attributes) => {
+                        if (!attributes.borderBottom) {
+                            return {};
+                        }
+
+                        return {
+                            'data-border-bottom':
+                                attributes.borderBottom,
+
+                            style:
+                                `border-bottom: ${attributes.borderBottom};`,
+                        };
+                    },
+                },
+
+                borderLeft: {
+                    default: null,
+
+                    parseHTML: (element) => {
+                        return (
+                            element.getAttribute(
+                                'data-border-left',
+                            ) || null
+                        );
+                    },
+
+                    renderHTML: (attributes) => {
+                        if (!attributes.borderLeft) {
+                            return {};
+                        }
+
+                        return {
+                            'data-border-left':
+                                attributes.borderLeft,
+
+                            style:
+                                `border-left: ${attributes.borderLeft};`,
+                        };
+                    },
+                },
             };
         },
     });
