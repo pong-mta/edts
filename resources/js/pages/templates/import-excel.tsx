@@ -4,23 +4,30 @@ import React, {
 } from 'react';
 
 import AppLayout from '@/layouts/app-layout';
-import { Head } from '@inertiajs/react';
+import {
+    Head,
+    router,
+} from '@inertiajs/react';
 
 import {
-    FileSpreadsheet,
-    Upload,
     CheckCircle2,
+    FileSpreadsheet,
     Loader2,
+    Pencil,
+    Upload,
 } from 'lucide-react';
 
 import * as XLSX from 'xlsx';
 
 import {
-    ExcelWorkbook,
-    ExcelSheet,
     ExcelCell,
     ExcelMerge,
+    ExcelSheet,
+    ExcelWorkbook,
 } from '@/types/excel';
+
+const IMPORT_STORAGE_KEY =
+    'edts_imported_excel_workbook';
 
 export default function ImportExcel() {
     const [file, setFile] =
@@ -39,7 +46,7 @@ export default function ImportExcel() {
 
     /*
     |--------------------------------------------------------------------------
-    | IMPORT EXCEL
+    | Import Excel
     |--------------------------------------------------------------------------
     */
 
@@ -76,7 +83,7 @@ export default function ImportExcel() {
         try {
             /*
             |--------------------------------------------------------------------------
-            | Read file
+            | Read workbook
             |--------------------------------------------------------------------------
             */
 
@@ -104,12 +111,6 @@ export default function ImportExcel() {
                                 .Sheets[
                                 sheetName
                             ];
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Determine worksheet range
-                        |--------------------------------------------------------------------------
-                        */
 
                         const range =
                             worksheet['!ref'];
@@ -224,7 +225,7 @@ export default function ImportExcel() {
 
                                 if (
                                     sourceCell.v !==
-                                    undefined &&
+                                        undefined &&
                                     sourceCell.v !==
                                         null
                                 ) {
@@ -496,17 +497,6 @@ export default function ImportExcel() {
                             );
                         }
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Images
-                        |--------------------------------------------------------------------------
-                        |
-                        | XLSX image extraction will be handled
-                        | separately. For now we preserve the
-                        | image collection in our data model.
-                        |
-                        */
-
                         return {
                             name: sheetName,
 
@@ -525,7 +515,7 @@ export default function ImportExcel() {
 
             /*
             |--------------------------------------------------------------------------
-            | EDTS Workbook
+            | Create EDTS workbook
             |--------------------------------------------------------------------------
             */
 
@@ -556,11 +546,46 @@ export default function ImportExcel() {
         }
     };
 
+    /*
+    |--------------------------------------------------------------------------
+    | Open in editor
+    |--------------------------------------------------------------------------
+    */
+
+    const openInEditor = () => {
+        if (!workbook) {
+            return;
+        }
+
+        try {
+            sessionStorage.setItem(
+                IMPORT_STORAGE_KEY,
+                JSON.stringify(
+                    workbook,
+                ),
+            );
+
+            router.visit(
+                '/templates/import/excel/editor',
+            );
+        } catch (err) {
+            console.error(
+                'Unable to open workbook:',
+                err,
+            );
+
+            setError(
+                'Unable to transfer the imported workbook to the editor.',
+            );
+        }
+    };
+
     return (
         <AppLayout>
             <Head title="Import Excel Template" />
 
             <div className="flex h-full flex-1 flex-col gap-6 p-6">
+
                 {/* ============================================================
                     HEADER
                 ============================================================ */}
@@ -582,6 +607,7 @@ export default function ImportExcel() {
                 ============================================================ */}
 
                 <div className="flex flex-1 items-center justify-center">
+
                     <div className="w-full max-w-3xl rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
 
                         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl bg-green-50">
@@ -602,17 +628,20 @@ export default function ImportExcel() {
                         </p>
 
                         {/* ====================================================
-                            SELECT BUTTON
+                            SELECT FILE
                         ==================================================== */}
 
                         <label className="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800">
+
                             {loading ? (
                                 <Loader2
                                     size={17}
                                     className="animate-spin"
                                 />
                             ) : (
-                                <Upload size={17} />
+                                <Upload
+                                    size={17}
+                                />
                             )}
 
                             {loading
@@ -638,13 +667,16 @@ export default function ImportExcel() {
 
                         {file && (
                             <div className="mx-auto mt-6 max-w-xl rounded-lg border border-slate-200 bg-slate-50 p-4 text-left">
+
                                 <div className="flex items-center gap-3">
+
                                     <FileSpreadsheet
                                         size={24}
                                         className="shrink-0 text-green-600"
                                     />
 
                                     <div className="min-w-0 flex-1">
+
                                         <p className="truncate text-sm font-medium text-slate-900">
                                             {file.name}
                                         </p>
@@ -658,6 +690,7 @@ export default function ImportExcel() {
                                             )}{' '}
                                             KB
                                         </p>
+
                                     </div>
 
                                     {!loading &&
@@ -669,6 +702,7 @@ export default function ImportExcel() {
                                                 className="shrink-0 text-green-600"
                                             />
                                         )}
+
                                 </div>
                             </div>
                         )}
@@ -684,12 +718,14 @@ export default function ImportExcel() {
                         )}
 
                         {/* ====================================================
-                            SHEETS
+                            WORKBOOK
                         ==================================================== */}
 
                         {workbook && (
                             <div className="mx-auto mt-6 max-w-xl text-left">
+
                                 <div className="mb-3 flex items-center justify-between">
+
                                     <h3 className="text-sm font-semibold text-slate-900">
                                         Workbook Imported
                                     </h3>
@@ -708,9 +744,11 @@ export default function ImportExcel() {
                                             ? 's'
                                             : ''}
                                     </span>
+
                                 </div>
 
                                 <div className="space-y-2">
+
                                     {workbook.sheets.map(
                                         (
                                             sheet,
@@ -721,8 +759,11 @@ export default function ImportExcel() {
                                                 }
                                                 className="rounded-lg border border-slate-200 bg-white p-4"
                                             >
+
                                                 <div className="flex items-center justify-between">
+
                                                     <div className="flex min-w-0 items-center gap-3">
+
                                                         <FileSpreadsheet
                                                             size={
                                                                 18
@@ -735,6 +776,7 @@ export default function ImportExcel() {
                                                                 sheet.name
                                                             }
                                                         </span>
+
                                                     </div>
 
                                                     <span className="text-xs text-slate-500">
@@ -745,9 +787,11 @@ export default function ImportExcel() {
                                                         }{' '}
                                                         rows
                                                     </span>
+
                                                 </div>
 
                                                 <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+
                                                     <div className="rounded bg-slate-50 p-2">
                                                         <div className="text-slate-400">
                                                             Columns
@@ -789,17 +833,40 @@ export default function ImportExcel() {
                                                             }
                                                         </div>
                                                     </div>
+
                                                 </div>
+
                                             </div>
                                         ),
                                     )}
+
                                 </div>
+
+                                {/* =================================================
+                                    OPEN EDITOR
+                                ================================================= */}
+
+                                <button
+                                    type="button"
+                                    onClick={
+                                        openInEditor
+                                    }
+                                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                                >
+                                    <Pencil
+                                        size={17}
+                                    />
+
+                                    Open in Excel Editor
+                                </button>
+
                             </div>
                         )}
 
                         <p className="mt-5 text-xs text-slate-400">
                             Supported format: .xlsx
                         </p>
+
                     </div>
                 </div>
             </div>

@@ -64,10 +64,14 @@ Route::middleware(['auth'])->group(function () {
     )->name('documents.update');
 
 
-
+    //EXCEL IMPORT AND OPEN TO EDITOR
     Route::get('/templates/import/excel', function () {
         return Inertia::render('templates/import-excel');
     })->name('templates.import.excel');
+
+    Route::get('/templates/import/excel/editor', function () {
+        return Inertia::render('templates/excel-editor');
+    })->name('templates.excel.editor');
 });
 
 require __DIR__ . '/settings.php';
