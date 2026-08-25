@@ -3,6 +3,7 @@ import axios from 'axios';
 import {
     ArrowLeft,
     CheckCircle2,
+    Clock3,
     LoaderCircle,
     ShieldCheck,
 } from 'lucide-react';
@@ -16,6 +17,8 @@ import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+
+const OTP_DURATION = 10 * 60;
 
 export default function VerifyForgotPassword() {
     const [otp, setOtp] = useState('');
@@ -34,6 +37,15 @@ export default function VerifyForgotPassword() {
     const [success, setSuccess] =
         useState('');
 
+    const [secondsLeft, setSecondsLeft] =
+        useState(OTP_DURATION);
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOAD USER INFORMATION
+    |--------------------------------------------------------------------------
+    */
+
     useEffect(() => {
         const params = new URLSearchParams(
             window.location.search,
@@ -45,26 +57,98 @@ export default function VerifyForgotPassword() {
         const queryPhone =
             params.get('phone');
 
-        if (queryUserId) {
-            setUserId(queryUserId);
+        const storedUserId =
+            sessionStorage.getItem(
+                'reset_user_id',
+            );
+
+        const storedPhone =
+            sessionStorage.getItem(
+                'reset_phone',
+            );
+
+        const finalUserId =
+            queryUserId || storedUserId || '';
+
+        const finalPhone =
+            queryPhone || storedPhone || '';
+
+        if (finalUserId) {
+            setUserId(finalUserId);
 
             sessionStorage.setItem(
                 'reset_user_id',
-                queryUserId,
+                finalUserId,
             );
         }
 
-        if (queryPhone) {
-            setPhone(queryPhone);
+        if (finalPhone) {
+            setPhone(finalPhone);
 
             sessionStorage.setItem(
                 'reset_phone',
-                queryPhone,
+                finalPhone,
             );
         }
     }, []);
 
-    const submit: FormEventHandler = async (e) => {
+    /*
+    |--------------------------------------------------------------------------
+    | OTP TIMER
+    |--------------------------------------------------------------------------
+    */
+
+    useEffect(() => {
+        if (secondsLeft <= 0) {
+            return;
+        }
+
+        const timer = window.setInterval(() => {
+            setSecondsLeft((current) => {
+                if (current <= 1) {
+                    window.clearInterval(timer);
+                    return 0;
+                }
+
+                return current - 1;
+            });
+        }, 1000);
+
+        return () => {
+            window.clearInterval(timer);
+        };
+    }, [secondsLeft]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | FORMAT TIMER
+    |--------------------------------------------------------------------------
+    */
+
+    const minutes = Math.floor(
+        secondsLeft / 60,
+    )
+        .toString()
+        .padStart(2, '0');
+
+    const seconds = (
+        secondsLeft % 60
+    )
+        .toString()
+        .padStart(2, '0');
+
+    const timerExpired =
+        secondsLeft === 0;
+
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFY OTP
+    |--------------------------------------------------------------------------
+    */
+
+    const submit: FormEventHandler = async (
+        e,
+    ) => {
         e.preventDefault();
 
         setProcessing(true);
@@ -77,7 +161,15 @@ export default function VerifyForgotPassword() {
             );
 
             setProcessing(false);
+            return;
+        }
 
+        if (timerExpired) {
+            setError(
+                'Your verification code has expired. Please request a new code.',
+            );
+
+            setProcessing(false);
             return;
         }
 
@@ -87,18 +179,19 @@ export default function VerifyForgotPassword() {
             );
 
             setProcessing(false);
-
             return;
         }
 
         try {
-            const response = await axios.post(
-                '/api/forgot-password/verify',
-                {
-                    user_id: Number(userId),
-                    otp,
-                },
-            );
+            const response =
+                await axios.post(
+                    '/api/forgot-password/verify',
+                    {
+                        user_id:
+                            Number(userId),
+                        otp,
+                    },
+                );
 
             /*
             |--------------------------------------------------------------------------
@@ -117,6 +210,16 @@ export default function VerifyForgotPassword() {
                     response.data.user_id ||
                         userId,
                 ),
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | RESET SESSION
+            |--------------------------------------------------------------------------
+            */
+
+            sessionStorage.removeItem(
+                'otp_expires_at',
             );
 
             /*
@@ -141,7 +244,8 @@ export default function VerifyForgotPassword() {
                     setError(
                         response.data?.errors
                             ?.otp?.[0] ||
-                            response.data?.message ||
+                            response.data
+                                ?.message ||
                             'Invalid verification code.',
                     );
 
@@ -149,7 +253,8 @@ export default function VerifyForgotPassword() {
                 }
 
                 setError(
-                    response?.data?.message ||
+                    response?.data
+                        ?.message ||
                         'Unable to verify the code.',
                 );
 
@@ -164,7 +269,20 @@ export default function VerifyForgotPassword() {
         }
     };
 
+    /*
+    |--------------------------------------------------------------------------
+    | RESEND OTP
+    |--------------------------------------------------------------------------
+    */
+
     const resendOtp = async () => {
+        if (
+            secondsLeft > 0 ||
+            resending
+        ) {
+            return;
+        }
+
         setResending(true);
         setError('');
         setSuccess('');
@@ -175,27 +293,61 @@ export default function VerifyForgotPassword() {
             );
 
             setResending(false);
-
             return;
         }
 
         try {
-            await axios.post(
-                '/api/forgot-password',
-                {
-                    phone,
-                },
+            const response =
+                await axios.post(
+                    '/api/forgot-password',
+                    {
+                        phone,
+                    },
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | UPDATE USER ID
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                response.data?.user_id
+            ) {
+                setUserId(
+                    String(
+                        response.data.user_id,
+                    ),
+                );
+
+                sessionStorage.setItem(
+                    'reset_user_id',
+                    String(
+                        response.data.user_id,
+                    ),
+                );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | RESET TIMER
+            |--------------------------------------------------------------------------
+            */
+
+            setSecondsLeft(
+                OTP_DURATION,
             );
+
+            setOtp('');
 
             setSuccess(
                 'A new verification code has been sent to your mobile number.',
             );
 
-            setOtp('');
-
         } catch (error: any) {
             setError(
-                error.response?.data?.message ||
+                error.response?.data
+                    ?.message ||
                     'Unable to resend the verification code.',
             );
         } finally {
@@ -203,11 +355,23 @@ export default function VerifyForgotPassword() {
         }
     };
 
+    /*
+    |--------------------------------------------------------------------------
+    | MASK PHONE
+    |--------------------------------------------------------------------------
+    */
+
     const maskedPhone = phone
         ? phone.substring(0, 4) +
           '••••' +
           phone.substring(8)
         : '';
+
+    /*
+    |--------------------------------------------------------------------------
+    | RENDER
+    |--------------------------------------------------------------------------
+    */
 
     return (
         <>
@@ -270,7 +434,7 @@ export default function VerifyForgotPassword() {
                     <div className="grid w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl lg:grid-cols-[1.1fr_0.9fr]">
 
                         {/* ================================================== */}
-                        {/* LEFT */}
+                        {/* LEFT PANEL */}
                         {/* ================================================== */}
 
                         <section className="relative hidden overflow-hidden bg-gradient-to-br from-[#0b1f3a] via-[#123b69] to-[#0b5cab] p-10 text-white lg:flex lg:flex-col lg:justify-between">
@@ -318,7 +482,7 @@ export default function VerifyForgotPassword() {
                                         </p>
 
                                         <p className="text-[10px] text-blue-200">
-                                            Verify your mobile number
+                                            Verify your registered mobile number
                                         </p>
                                     </div>
 
@@ -339,7 +503,7 @@ export default function VerifyForgotPassword() {
                         </section>
 
                         {/* ================================================== */}
-                        {/* RIGHT */}
+                        {/* RIGHT PANEL */}
                         {/* ================================================== */}
 
                         <section className="flex items-center p-6 sm:p-8 lg:p-10">
@@ -348,9 +512,9 @@ export default function VerifyForgotPassword() {
 
                                 {/* MOBILE LOGO */}
 
-                                <div className="mb-6 flex justify-center lg:hidden">
+                                <div className="mb-5 flex justify-center lg:hidden">
 
-                                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white p-1 shadow-md ring-1 ring-slate-200">
+                                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white p-1 shadow-md ring-1 ring-slate-200">
 
                                         <img
                                             src="/images/estancia-logo.png"
@@ -364,11 +528,11 @@ export default function VerifyForgotPassword() {
 
                                 {/* ICON */}
 
-                                <div className="mb-5 flex justify-center lg:justify-start">
+                                <div className="mb-4 flex justify-center lg:justify-start">
 
-                                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
 
-                                        <CheckCircle2 className="h-6 w-6" />
+                                        <CheckCircle2 className="h-5 w-5" />
 
                                     </div>
 
@@ -376,19 +540,18 @@ export default function VerifyForgotPassword() {
 
                                 {/* TITLE */}
 
-                                <div className="mb-7 text-center lg:text-left">
+                                <div className="mb-6 text-center lg:text-left">
 
                                     <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-700">
                                         Security Verification
                                     </p>
 
-                                    <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">
+                                    <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-slate-900">
                                         Verify your mobile
                                     </h2>
 
-                                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                                        Enter the 6-digit verification
-                                        code sent to
+                                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                                        Enter the 6-digit code sent to
                                     </p>
 
                                     <p className="mt-1 text-sm font-semibold text-slate-800">
@@ -397,27 +560,73 @@ export default function VerifyForgotPassword() {
 
                                 </div>
 
-                                {/* SUCCESS */}
+                                {/* ALERT */}
 
                                 {success && (
-                                    <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-medium text-emerald-700">
+                                    <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-medium text-emerald-700">
                                         {success}
                                     </div>
                                 )}
 
-                                {/* ERROR */}
-
                                 {error && (
-                                    <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+                                    <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
                                         {error}
                                     </div>
                                 )}
+
+                                {/* TIMER */}
+
+                                <div
+                                    className={`mb-5 flex items-center justify-between rounded-xl border px-4 py-3 ${
+                                        timerExpired
+                                            ? 'border-red-200 bg-red-50'
+                                            : 'border-slate-200 bg-slate-50'
+                                    }`}
+                                >
+
+                                    <div className="flex items-center gap-2">
+
+                                        <Clock3
+                                            className={`h-4 w-4 ${
+                                                timerExpired
+                                                    ? 'text-red-600'
+                                                    : 'text-blue-700'
+                                            }`}
+                                        />
+
+                                        <div>
+                                            <p className="text-[10px] font-medium text-slate-500">
+                                                Code expires in
+                                            </p>
+
+                                            <p
+                                                className={`text-sm font-bold ${
+                                                    timerExpired
+                                                        ? 'text-red-600'
+                                                        : 'text-slate-900'
+                                                }`}
+                                            >
+                                                {timerExpired
+                                                    ? 'Expired'
+                                                    : `${minutes}:${seconds}`}
+                                            </p>
+                                        </div>
+
+                                    </div>
+
+                                    {timerExpired && (
+                                        <span className="rounded-full bg-red-100 px-2.5 py-1 text-[9px] font-semibold text-red-700">
+                                            New code required
+                                        </span>
+                                    )}
+
+                                </div>
 
                                 {/* FORM */}
 
                                 <form
                                     onSubmit={submit}
-                                    className="space-y-5"
+                                    className="space-y-4"
                                 >
 
                                     <div>
@@ -446,28 +655,31 @@ export default function VerifyForgotPassword() {
                                                     ),
                                                 )
                                             }
-                                            disabled={processing}
+                                            disabled={
+                                                processing ||
+                                                timerExpired
+                                            }
                                             placeholder="000000"
-                                            className="h-14 rounded-xl border-slate-200 bg-slate-50 px-4 text-center text-2xl font-bold tracking-[0.5em] focus:bg-white"
+                                            className="h-14 rounded-xl border-slate-200 bg-slate-50 px-4 text-center text-2xl font-bold tracking-[0.5em] transition focus:bg-white"
                                         />
 
                                     </div>
 
                                     {/* SECURITY */}
 
-                                    <div className="flex gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3.5">
+                                    <div className="flex gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3">
 
                                         <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
 
                                         <div>
 
                                             <p className="text-xs font-semibold text-blue-900">
-                                                Verification code
+                                                Secure verification
                                             </p>
 
                                             <p className="mt-1 text-[10px] leading-4 text-blue-700">
-                                                Enter the code sent to your
-                                                registered mobile number.
+                                                Never share this code with
+                                                anyone.
                                             </p>
 
                                         </div>
@@ -480,9 +692,10 @@ export default function VerifyForgotPassword() {
                                         type="submit"
                                         disabled={
                                             processing ||
+                                            timerExpired ||
                                             otp.length !== 6
                                         }
-                                        className="h-11 w-full rounded-xl bg-[#0b5cab] text-sm font-semibold shadow-lg shadow-blue-900/10 hover:bg-[#084b8d]"
+                                        className="h-11 w-full rounded-xl bg-[#0b5cab] text-sm font-semibold shadow-lg shadow-blue-900/10 transition hover:bg-[#084b8d]"
                                     >
 
                                         {processing ? (
@@ -500,28 +713,39 @@ export default function VerifyForgotPassword() {
 
                                 {/* RESEND */}
 
-                                <div className="mt-6 text-center">
+                                <div className="mt-5 text-center">
 
-                                    <p className="text-xs text-slate-500">
-                                        Didn't receive the code?
-                                    </p>
+                                    {!timerExpired ? (
+                                        <p className="text-[11px] text-slate-400">
+                                            You can request a new code
+                                            when the timer expires.
+                                        </p>
+                                    ) : (
+                                        <>
+                                            <p className="text-xs text-slate-500">
+                                                Didn't receive the code?
+                                            </p>
 
-                                    <button
-                                        type="button"
-                                        onClick={resendOtp}
-                                        disabled={resending}
-                                        className="mt-2 text-xs font-semibold text-blue-700 hover:text-blue-800 disabled:opacity-50"
-                                    >
-                                        {resending
-                                            ? 'Sending...'
-                                            : 'Resend verification code'}
-                                    </button>
+                                            <button
+                                                type="button"
+                                                onClick={resendOtp}
+                                                disabled={
+                                                    resending
+                                                }
+                                                className="mt-1.5 text-xs font-semibold text-blue-700 transition hover:text-blue-800 disabled:opacity-50"
+                                            >
+                                                {resending
+                                                    ? 'Sending new code...'
+                                                    : 'Resend verification code'}
+                                            </button>
+                                        </>
+                                    )}
 
                                 </div>
 
                                 {/* BACK */}
 
-                                <div className="mt-6 border-t border-slate-100 pt-5 text-center">
+                                <div className="mt-5 border-t border-slate-100 pt-5 text-center">
 
                                     <TextLink
                                         href="/forgot-password"
@@ -536,7 +760,7 @@ export default function VerifyForgotPassword() {
 
                                 {/* FOOTER */}
 
-                                <div className="mt-6 text-center">
+                                <div className="mt-5 text-center">
 
                                     <p className="text-[9px] uppercase tracking-[0.16em] text-slate-400">
                                         Municipal Government of Estancia
@@ -551,7 +775,9 @@ export default function VerifyForgotPassword() {
                             </div>
 
                         </section>
+
                     </div>
+
                 </main>
             </div>
         </>
