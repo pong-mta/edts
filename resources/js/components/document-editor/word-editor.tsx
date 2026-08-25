@@ -110,7 +110,7 @@ export default function WordEditor({
     });
 
     const [rowHeight, setRowHeight] =
-    useState('24');
+    useState('15');
     const [borderWidth, setBorderWidth] =
         useState('1');
 
@@ -399,7 +399,7 @@ export default function WordEditor({
         }
 
         if (!editor.isActive('tableRow')) {
-            setRowHeight('24');
+            setRowHeight('15');
             return;
         }
 
@@ -414,7 +414,7 @@ export default function WordEditor({
                 String(currentHeight),
             );
         } else {
-            setRowHeight('24');
+            setRowHeight('15');
         }
     };
 
@@ -1441,7 +1441,7 @@ export default function WordEditor({
 
                                 <input
                                     type="number"
-                                    min="24"
+                                    min="8"
                                     max="500"
                                     step="1"
                                     value={rowHeight}
@@ -1467,7 +1467,7 @@ export default function WordEditor({
                                             !Number.isFinite(
                                                 height,
                                             ) ||
-                                            height < 24 ||
+                                            height < 8 ||
                                             height > 500
                                         ) {
                                             return;
