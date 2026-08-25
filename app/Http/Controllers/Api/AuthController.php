@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Services\SmsService;
 use App\Models\Role;
+use App\Models\Department;
 
 class AuthController extends Controller
 {
@@ -35,10 +36,10 @@ class AuthController extends Controller
                 'unique:users,phone',
             ],
 
-            'department' => [
+            'department_id' => [
                 'required',
-                'string',
-                'max:255',
+                'integer',
+                'exists:departments,id',
             ],
 
             'password' => [
@@ -67,7 +68,7 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $validated['name'],
             'phone' => $validated['phone'],
-            'department' => $validated['department'],
+            'department_id' => $validated['department_id'],
             'password' => Hash::make(
                 $validated['password']
             ),
@@ -253,8 +254,11 @@ class AuthController extends Controller
                 'phone' =>
                 $user->phone,
 
-                'department' =>
-                $user->department,
+                'department' => $user->department ? [
+                    'id' => $user->department->id,
+                    'name' => $user->department->name,
+                    'code' => $user->department->code,
+                ] : null,
 
                 'phone_verified' =>
                 $user->phone_verified,
@@ -422,8 +426,11 @@ class AuthController extends Controller
                 'phone' =>
                 $user->phone,
 
-                'department' =>
-                $user->department,
+                'department' => $user->department ? [
+                    'id' => $user->department->id,
+                    'name' => $user->department->name,
+                    'code' => $user->department->code,
+                ] : null,
 
                 'phone_verified' =>
                 $user->phone_verified,
