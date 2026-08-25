@@ -317,6 +317,7 @@ export default function Dashboard({
                                 }
                                 title="Create Document"
                                 description="Start a new municipal document"
+                                href={route('documents.create')}
                             />
 
                             <QuickAction
@@ -412,23 +413,20 @@ function QuickAction({
     icon,
     title,
     description,
+    href,
 }: {
     icon: React.ReactNode;
     title: string;
     description: string;
+    href?: string;
 }) {
-    return (
-        <button
-            type="button"
-            className="flex w-full items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-left transition hover:border-blue-100 hover:bg-blue-50"
-        >
-
+    const content = (
+        <>
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-700 shadow-sm">
                 {icon}
             </div>
 
             <div className="min-w-0">
-
                 <p className="text-xs font-semibold text-slate-800">
                     {title}
                 </p>
@@ -436,9 +434,27 @@ function QuickAction({
                 <p className="mt-0.5 truncate text-[10px] text-slate-500">
                     {description}
                 </p>
-
             </div>
+        </>
+    );
 
+    if (href) {
+        return (
+            <Link
+                href={href}
+                className="flex w-full items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-left transition hover:border-blue-100 hover:bg-blue-50"
+            >
+                {content}
+            </Link>
+        );
+    }
+
+    return (
+        <button
+            type="button"
+            className="flex w-full items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3 text-left transition hover:border-blue-100 hover:bg-blue-50"
+        >
+            {content}
         </button>
     );
 }
