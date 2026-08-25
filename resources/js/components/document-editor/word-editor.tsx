@@ -127,6 +127,9 @@ export default function WordEditor({
     const [selectedBorderColor, setSelectedBorderColor] =
     useState('#000000');
 
+    const [isTableActive, setIsTableActive] =
+    useState(false);
+
     const setCellBorderColor = (
         value: string | null,
     ) => {
@@ -422,6 +425,10 @@ export default function WordEditor({
         }
 
         const handleSelectionUpdate = () => {
+            setIsTableActive(
+                editor.isActive('tableCell') ||
+                editor.isActive('tableHeader'),
+            );
             syncFontSize();
             syncFontFamily();
             syncRowHeight();
@@ -1104,7 +1111,7 @@ export default function WordEditor({
                         )}
                     </div>
 
-                      {editor.isActive('table') && (
+                      {isTableActive && (
                         <>
                             <ToolbarDivider />
 
@@ -1425,7 +1432,7 @@ export default function WordEditor({
 
                    <ToolbarDivider />
 
-                    {editor.isActive('table') && (
+                    {isTableActive && (
                         <>
                             <div className="flex items-center gap-1">
                                 <span className="text-[10px] text-slate-500">
