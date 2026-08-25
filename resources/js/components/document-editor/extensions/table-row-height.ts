@@ -32,7 +32,7 @@ export const TableRowHeight = TableRow.extend({
                         'data-row-height':
                             attributes.height,
 
-                        style: `height: ${attributes.height}px;`,
+                        style: `height: ${attributes.height}pt;`,
                     };
                 },
             },

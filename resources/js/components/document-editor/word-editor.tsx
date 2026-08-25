@@ -1462,8 +1462,7 @@ export default function WordEditor({
                                                 event.currentTarget
                                                     .value,
                                             );
-                                        const cssHeight =
-                                            Math.round(height * 1.333);
+                                        
 
                                         if (
                                             !Number.isFinite(
@@ -1481,7 +1480,7 @@ export default function WordEditor({
                                             .updateAttributes(
                                                 'tableRow',
                                                 {
-                                                    height: cssHeight,
+                                                    height,
                                                 },
                                             )
                                             .run();
