@@ -374,21 +374,69 @@ export default function VerifyForgotPassword() {
     */
 
     return (
-        <>
-            <Head title="Verify OTP | Municipality of Estancia" />
+    <>
+        <Head title="Verify OTP | Municipality of Estancia" />
 
-            <div className="h-screen overflow-hidden bg-slate-100">
+        <div className="fixed inset-0 overflow-hidden bg-slate-100">
 
-                {/* ================================================== */}
-                {/* HEADER */}
-                {/* ================================================== */}
+            {/* HEADER */}
+            <header className="h-[68px] bg-[#0b1f3a] text-white">
+                <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-5">
 
-                <header className="h-[72px] bg-[#0b1f3a] text-white">
-                    <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-5">
+                    <div className="flex items-center gap-3">
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white p-1 shadow-md">
+                            <img
+                                src="/images/estancia-logo.png"
+                                alt="Municipality of Estancia"
+                                className="h-full w-full object-contain"
+                            />
+                        </div>
 
-                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white p-1 shadow-md">
+                        <div className="leading-tight">
+                            <p className="text-[7px] uppercase tracking-[0.2em] text-blue-200">
+                                Republic of the Philippines
+                            </p>
+
+                            <h1 className="text-xs font-bold uppercase tracking-wide">
+                                Municipality of Estancia
+                            </h1>
+
+                            <p className="text-[9px] text-blue-200">
+                                Province of Iloilo
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <div className="hidden text-right sm:block">
+                        <p className="text-xs font-bold">
+                            eDTS
+                        </p>
+
+                        <p className="text-[8px] text-blue-200">
+                            Electronic Document Tracking System
+                        </p>
+                    </div>
+
+                </div>
+            </header>
+
+            {/* CONTENT */}
+            <main className="flex h-[calc(100dvh-68px)] items-center justify-center overflow-hidden px-3 py-3 sm:px-5">
+
+                <div className="flex h-full max-h-[620px] w-full max-w-[980px] overflow-hidden rounded-2xl bg-white shadow-xl">
+
+                    {/* LEFT */}
+                    <section className="relative hidden w-[52%] overflow-hidden bg-gradient-to-br from-[#0b1f3a] via-[#123b69] to-[#0b5cab] p-8 text-white lg:flex lg:flex-col lg:justify-between">
+
+                        <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full border border-white/10" />
+
+                        <div className="absolute -bottom-28 -left-20 h-72 w-72 rounded-full border border-white/10" />
+
+                        <div className="relative">
+
+                            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white p-2 shadow-lg">
                                 <img
                                     src="/images/estancia-logo.png"
                                     alt="Municipality of Estancia"
@@ -396,390 +444,320 @@ export default function VerifyForgotPassword() {
                                 />
                             </div>
 
-                            <div>
-                                <p className="text-[8px] uppercase tracking-[0.2em] text-blue-200">
-                                    Republic of the Philippines
-                                </p>
+                            <p className="mt-7 text-[9px] font-semibold uppercase tracking-[0.2em] text-blue-200">
+                                Municipal Government
+                            </p>
 
-                                <h1 className="text-sm font-bold uppercase tracking-wide">
-                                    Municipality of Estancia
-                                </h1>
+                            <h2 className="mt-2 text-3xl font-bold leading-tight">
+                                Electronic Document
+                                <span className="block text-blue-300">
+                                    Tracking System
+                                </span>
+                            </h2>
 
-                                <p className="text-[10px] text-blue-200">
-                                    Province of Iloilo
-                                </p>
+                            <p className="mt-4 max-w-sm text-xs leading-5 text-blue-100">
+                                Securely manage and track official
+                                municipal documents throughout
+                                the Municipality of Estancia.
+                            </p>
+
+                            <div className="mt-7 flex items-center gap-3">
+
+                                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10">
+                                    <ShieldCheck className="h-4 w-4 text-emerald-300" />
+                                </div>
+
+                                <div>
+                                    <p className="text-[11px] font-semibold">
+                                        Secure OTP Verification
+                                    </p>
+
+                                    <p className="text-[9px] text-blue-200">
+                                        Your account is protected
+                                    </p>
+                                </div>
+
                             </div>
 
                         </div>
 
-                        <div className="hidden text-right sm:block">
-                            <p className="text-xs font-semibold">
-                                eDTS
+                        <div className="relative">
+                            <p className="text-[9px] text-blue-300">
+                                Municipality of Estancia
                             </p>
 
-                            <p className="text-[9px] text-blue-200">
-                                Electronic Document Tracking System
+                            <p className="mt-1 text-[9px] text-blue-400">
+                                Province of Iloilo • Philippines
                             </p>
                         </div>
 
-                    </div>
-                </header>
+                    </section>
 
-                {/* ================================================== */}
-                {/* MAIN */}
-                {/* ================================================== */}
+                    {/* RIGHT */}
+                    <section className="flex min-w-0 flex-1 items-center justify-center overflow-hidden px-5 py-5 sm:px-8">
 
-                <main className="flex h-[calc(100vh-72px)] items-center justify-center px-4">
+                        <div className="w-full max-w-[390px]">
 
-                    <div className="grid w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl lg:grid-cols-[1.1fr_0.9fr]">
+                            {/* MOBILE LOGO */}
+                            <div className="mb-4 flex justify-center lg:hidden">
 
-                        {/* ================================================== */}
-                        {/* LEFT PANEL */}
-                        {/* ================================================== */}
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white p-1 shadow ring-1 ring-slate-200">
 
-                        <section className="relative hidden overflow-hidden bg-gradient-to-br from-[#0b1f3a] via-[#123b69] to-[#0b5cab] p-10 text-white lg:flex lg:flex-col lg:justify-between">
-
-                            <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full border border-white/10" />
-
-                            <div className="absolute -bottom-32 -left-20 h-80 w-80 rounded-full border border-white/10" />
-
-                            <div className="relative">
-
-                                <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white p-2 shadow-xl">
                                     <img
                                         src="/images/estancia-logo.png"
-                                        alt=""
+                                        alt="Municipality of Estancia"
                                         className="h-full w-full object-contain"
                                     />
+
                                 </div>
 
-                                <p className="mt-8 text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-200">
-                                    Municipal Government
+                            </div>
+
+                            {/* ICON */}
+                            <div className="mb-3 flex justify-center lg:justify-start">
+
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
+                                    <CheckCircle2 className="h-5 w-5" />
+                                </div>
+
+                            </div>
+
+                            {/* TITLE */}
+                            <div className="mb-4 text-center lg:text-left">
+
+                                <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-blue-700">
+                                    Security Verification
                                 </p>
 
-                                <h2 className="mt-2 text-4xl font-bold leading-tight">
-                                    Electronic Document
-                                    <span className="block text-blue-300">
-                                        Tracking System
-                                    </span>
+                                <h2 className="mt-1 text-xl font-bold text-slate-900">
+                                    Verify your mobile
                                 </h2>
 
-                                <p className="mt-5 max-w-md text-sm leading-6 text-blue-100">
-                                    Securely manage and track official
-                                    municipal documents throughout
-                                    the Municipality of Estancia.
+                                <p className="mt-1.5 text-[11px] text-slate-500">
+                                    Enter the 6-digit code sent to
                                 </p>
 
-                                <div className="mt-8 flex items-center gap-3">
+                                <p className="mt-0.5 text-xs font-bold text-slate-800">
+                                    {maskedPhone}
+                                </p>
 
-                                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10">
-                                        <ShieldCheck className="h-5 w-5 text-emerald-300" />
-                                    </div>
+                            </div>
+
+                            {/* TIMER */}
+                            <div
+                                className={`mb-4 flex items-center justify-between rounded-xl border px-3.5 py-2.5 ${
+                                    timerExpired
+                                        ? 'border-red-200 bg-red-50'
+                                        : 'border-slate-200 bg-slate-50'
+                                }`}
+                            >
+
+                                <div className="flex items-center gap-2">
+
+                                    <Clock3
+                                        className={`h-4 w-4 ${
+                                            timerExpired
+                                                ? 'text-red-600'
+                                                : 'text-blue-700'
+                                        }`}
+                                    />
 
                                     <div>
-                                        <p className="text-xs font-semibold">
-                                            Secure OTP Verification
+                                        <p className="text-[9px] text-slate-500">
+                                            Code expires in
                                         </p>
 
-                                        <p className="text-[10px] text-blue-200">
-                                            Verify your registered mobile number
-                                        </p>
-                                    </div>
-
-                                </div>
-
-                            </div>
-
-                            <div className="relative">
-                                <p className="text-[10px] text-blue-300">
-                                    Municipality of Estancia
-                                </p>
-
-                                <p className="mt-1 text-[10px] text-blue-400">
-                                    Province of Iloilo • Philippines
-                                </p>
-                            </div>
-
-                        </section>
-
-                        {/* ================================================== */}
-                        {/* RIGHT PANEL */}
-                        {/* ================================================== */}
-
-                        <section className="flex items-center p-6 sm:p-8 lg:p-10">
-
-                            <div className="w-full">
-
-                                {/* MOBILE LOGO */}
-
-                                <div className="mb-5 flex justify-center lg:hidden">
-
-                                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white p-1 shadow-md ring-1 ring-slate-200">
-
-                                        <img
-                                            src="/images/estancia-logo.png"
-                                            alt="Municipality of Estancia"
-                                            className="h-full w-full object-contain"
-                                        />
-
-                                    </div>
-
-                                </div>
-
-                                {/* ICON */}
-
-                                <div className="mb-4 flex justify-center lg:justify-start">
-
-                                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
-
-                                        <CheckCircle2 className="h-5 w-5" />
-
-                                    </div>
-
-                                </div>
-
-                                {/* TITLE */}
-
-                                <div className="mb-6 text-center lg:text-left">
-
-                                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-blue-700">
-                                        Security Verification
-                                    </p>
-
-                                    <h2 className="mt-1.5 text-2xl font-bold tracking-tight text-slate-900">
-                                        Verify your mobile
-                                    </h2>
-
-                                    <p className="mt-2 text-xs leading-5 text-slate-500">
-                                        Enter the 6-digit code sent to
-                                    </p>
-
-                                    <p className="mt-1 text-sm font-semibold text-slate-800">
-                                        {maskedPhone}
-                                    </p>
-
-                                </div>
-
-                                {/* ALERT */}
-
-                                {success && (
-                                    <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-medium text-emerald-700">
-                                        {success}
-                                    </div>
-                                )}
-
-                                {error && (
-                                    <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
-                                        {error}
-                                    </div>
-                                )}
-
-                                {/* TIMER */}
-
-                                <div
-                                    className={`mb-5 flex items-center justify-between rounded-xl border px-4 py-3 ${
-                                        timerExpired
-                                            ? 'border-red-200 bg-red-50'
-                                            : 'border-slate-200 bg-slate-50'
-                                    }`}
-                                >
-
-                                    <div className="flex items-center gap-2">
-
-                                        <Clock3
-                                            className={`h-4 w-4 ${
+                                        <p
+                                            className={`text-sm font-bold tabular-nums ${
                                                 timerExpired
                                                     ? 'text-red-600'
-                                                    : 'text-blue-700'
+                                                    : 'text-slate-900'
                                             }`}
-                                        />
-
-                                        <div>
-                                            <p className="text-[10px] font-medium text-slate-500">
-                                                Code expires in
-                                            </p>
-
-                                            <p
-                                                className={`text-sm font-bold ${
-                                                    timerExpired
-                                                        ? 'text-red-600'
-                                                        : 'text-slate-900'
-                                                }`}
-                                            >
-                                                {timerExpired
-                                                    ? 'Expired'
-                                                    : `${minutes}:${seconds}`}
-                                            </p>
-                                        </div>
-
-                                    </div>
-
-                                    {timerExpired && (
-                                        <span className="rounded-full bg-red-100 px-2.5 py-1 text-[9px] font-semibold text-red-700">
-                                            New code required
-                                        </span>
-                                    )}
-
-                                </div>
-
-                                {/* FORM */}
-
-                                <form
-                                    onSubmit={submit}
-                                    className="space-y-4"
-                                >
-
-                                    <div>
-
-                                        <Label
-                                            htmlFor="otp"
-                                            className="mb-2 block text-xs font-semibold text-slate-700"
                                         >
-                                            Verification Code
-                                        </Label>
-
-                                        <Input
-                                            id="otp"
-                                            type="text"
-                                            inputMode="numeric"
-                                            autoComplete="one-time-code"
-                                            maxLength={6}
-                                            required
-                                            autoFocus
-                                            value={otp}
-                                            onChange={(e) =>
-                                                setOtp(
-                                                    e.target.value.replace(
-                                                        /\D/g,
-                                                        '',
-                                                    ),
-                                                )
-                                            }
-                                            disabled={
-                                                processing ||
-                                                timerExpired
-                                            }
-                                            placeholder="000000"
-                                            className="h-14 rounded-xl border-slate-200 bg-slate-50 px-4 text-center text-2xl font-bold tracking-[0.5em] transition focus:bg-white"
-                                        />
-
-                                    </div>
-
-                                    {/* SECURITY */}
-
-                                    <div className="flex gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3">
-
-                                        <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-700" />
-
-                                        <div>
-
-                                            <p className="text-xs font-semibold text-blue-900">
-                                                Secure verification
-                                            </p>
-
-                                            <p className="mt-1 text-[10px] leading-4 text-blue-700">
-                                                Never share this code with
-                                                anyone.
-                                            </p>
-
-                                        </div>
-
-                                    </div>
-
-                                    {/* VERIFY */}
-
-                                    <Button
-                                        type="submit"
-                                        disabled={
-                                            processing ||
-                                            timerExpired ||
-                                            otp.length !== 6
-                                        }
-                                        className="h-11 w-full rounded-xl bg-[#0b5cab] text-sm font-semibold shadow-lg shadow-blue-900/10 transition hover:bg-[#084b8d]"
-                                    >
-
-                                        {processing ? (
-                                            <>
-                                                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                                                Verifying...
-                                            </>
-                                        ) : (
-                                            'Verify Code'
-                                        )}
-
-                                    </Button>
-
-                                </form>
-
-                                {/* RESEND */}
-
-                                <div className="mt-5 text-center">
-
-                                    {!timerExpired ? (
-                                        <p className="text-[11px] text-slate-400">
-                                            You can request a new code
-                                            when the timer expires.
+                                            {timerExpired
+                                                ? 'Expired'
+                                                : `${minutes}:${seconds}`}
                                         </p>
-                                    ) : (
-                                        <>
-                                            <p className="text-xs text-slate-500">
-                                                Didn't receive the code?
-                                            </p>
-
-                                            <button
-                                                type="button"
-                                                onClick={resendOtp}
-                                                disabled={
-                                                    resending
-                                                }
-                                                className="mt-1.5 text-xs font-semibold text-blue-700 transition hover:text-blue-800 disabled:opacity-50"
-                                            >
-                                                {resending
-                                                    ? 'Sending new code...'
-                                                    : 'Resend verification code'}
-                                            </button>
-                                        </>
-                                    )}
+                                    </div>
 
                                 </div>
 
-                                {/* BACK */}
-
-                                <div className="mt-5 border-t border-slate-100 pt-5 text-center">
-
-                                    <TextLink
-                                        href="/forgot-password"
-                                        className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-700"
-                                    >
-                                        <ArrowLeft className="h-3.5 w-3.5" />
-
-                                        Back to password recovery
-                                    </TextLink>
-
-                                </div>
-
-                                {/* FOOTER */}
-
-                                <div className="mt-5 text-center">
-
-                                    <p className="text-[9px] uppercase tracking-[0.16em] text-slate-400">
-                                        Municipal Government of Estancia
-                                    </p>
-
-                                    <p className="mt-1 text-[9px] text-slate-400">
-                                        Province of Iloilo • Philippines
-                                    </p>
-
-                                </div>
+                                {!timerExpired && (
+                                    <span className="text-[9px] font-medium text-slate-400">
+                                        5 minute validity
+                                    </span>
+                                )}
 
                             </div>
 
-                        </section>
+                            {/* ALERTS */}
 
-                    </div>
+                            {success && (
+                                <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[10px] font-medium text-emerald-700">
+                                    {success}
+                                </div>
+                            )}
 
-                </main>
-            </div>
-        </>
-    );
+                            {error && (
+                                <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[10px] text-red-700">
+                                    {error}
+                                </div>
+                            )}
+
+                            {/* FORM */}
+
+                            <form
+                                onSubmit={submit}
+                                className="space-y-3.5"
+                            >
+
+                                <div>
+
+                                    <Label
+                                        htmlFor="otp"
+                                        className="mb-1.5 block text-[10px] font-semibold text-slate-700"
+                                    >
+                                        Verification Code
+                                    </Label>
+
+                                    <Input
+                                        id="otp"
+                                        type="text"
+                                        inputMode="numeric"
+                                        autoComplete="one-time-code"
+                                        maxLength={6}
+                                        required
+                                        autoFocus
+                                        value={otp}
+                                        onChange={(e) =>
+                                            setOtp(
+                                                e.target.value.replace(
+                                                    /\D/g,
+                                                    '',
+                                                ),
+                                            )
+                                        }
+                                        disabled={
+                                            processing ||
+                                            timerExpired
+                                        }
+                                        placeholder="000000"
+                                        className="h-12 rounded-xl border-slate-200 bg-slate-50 px-3 text-center text-xl font-bold tracking-[0.45em] focus:bg-white"
+                                    />
+
+                                </div>
+
+                                {/* SECURITY */}
+
+                                <div className="flex gap-2.5 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5">
+
+                                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
+
+                                    <div>
+                                        <p className="text-[10px] font-semibold text-blue-900">
+                                            Secure verification
+                                        </p>
+
+                                        <p className="mt-0.5 text-[9px] leading-4 text-blue-700">
+                                            Never share this verification
+                                            code with anyone.
+                                        </p>
+                                    </div>
+
+                                </div>
+
+                                {/* BUTTON */}
+
+                                <Button
+                                    type="submit"
+                                    disabled={
+                                        processing ||
+                                        timerExpired ||
+                                        otp.length !== 6
+                                    }
+                                    className="h-10 w-full rounded-xl bg-[#0b5cab] text-xs font-semibold shadow-md shadow-blue-900/10 hover:bg-[#084b8d]"
+                                >
+                                    {processing ? (
+                                        <>
+                                            <LoaderCircle className="mr-2 h-3.5 w-3.5 animate-spin" />
+                                            Verifying...
+                                        </>
+                                    ) : (
+                                        'Verify Code'
+                                    )}
+                                </Button>
+
+                            </form>
+
+                            {/* RESEND */}
+
+                            <div className="mt-4 text-center">
+
+                                {!timerExpired ? (
+                                    <p className="text-[10px] text-slate-400">
+                                        Didn't receive the code?
+                                        <span className="ml-1">
+                                            Wait until the timer expires.
+                                        </span>
+                                    </p>
+                                ) : (
+                                    <>
+                                        <p className="text-[10px] text-slate-500">
+                                            Didn't receive the code?
+                                        </p>
+
+                                        <button
+                                            type="button"
+                                            onClick={resendOtp}
+                                            disabled={resending}
+                                            className="mt-1 text-[10px] font-bold text-blue-700 hover:text-blue-800 disabled:opacity-50"
+                                        >
+                                            {resending
+                                                ? 'Sending new code...'
+                                                : 'Resend verification code'}
+                                        </button>
+                                    </>
+                                )}
+
+                            </div>
+
+                            {/* BACK */}
+
+                            <div className="mt-4 border-t border-slate-100 pt-4 text-center">
+
+                                <TextLink
+                                    href="/forgot-password"
+                                    className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-500 hover:text-blue-700"
+                                >
+                                    <ArrowLeft className="h-3 w-3" />
+
+                                    Back to password recovery
+                                </TextLink>
+
+                            </div>
+
+                            {/* FOOTER */}
+
+                            <div className="mt-3 text-center">
+
+                                <p className="text-[8px] uppercase tracking-[0.14em] text-slate-400">
+                                    Municipal Government of Estancia
+                                </p>
+
+                                <p className="mt-0.5 text-[8px] text-slate-400">
+                                    Province of Iloilo • Philippines
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </section>
+
+                </div>
+
+            </main>
+        </div>
+    </>
+);
 }
