@@ -10,6 +10,7 @@ import React, {
 
 type Cell = {
     value: string;
+    formula?: string;
 };
 
 type CellPosition = {
@@ -20,6 +21,29 @@ type CellPosition = {
 type CellRange = {
     start: CellPosition;
     end: CellPosition;
+};
+
+type ExcelSheet = {
+    name: string;
+    cells: Cell[][];
+    columnWidths?: number[];
+    rowHeights?: number[];
+    mergedCells?: ExcelMerge[];
+    images?: unknown[];
+};
+
+type ExcelMerge = {
+    startRow: number;
+    startColumn: number;
+    endRow: number;
+    endColumn: number;
+};
+
+type ExcelWorkbook = {
+    version?: number;
+    type?: string;
+    sheets: ExcelSheet[];
+    activeSheet?: number;
 };
 
 interface ExcelEditorProps {
@@ -40,10 +64,14 @@ const MAX_ROW_HEIGHT = 200;
 
 const createEmptyRows = (): Cell[][] =>
     Array.from(
-        { length: DEFAULT_ROWS },
+        {
+            length: DEFAULT_ROWS,
+        },
         () =>
             Array.from(
-                { length: DEFAULT_COLUMNS },
+                {
+                    length: DEFAULT_COLUMNS,
+                },
                 () => ({
                     value: '',
                 }),
@@ -75,22 +103,46 @@ const cloneRows = (
         })),
     );
 
+const columnName = (
+    index: number,
+) => {
+    let name = '';
+    let number = index + 1;
+
+    while (number > 0) {
+        const remainder =
+            (number - 1) % 26;
+
+        name =
+            String.fromCharCode(
+                65 + remainder,
+            ) + name;
+
+        number = Math.floor(
+            (number - 1) / 26,
+        );
+    }
+
+    return name;
+};
+
 const normalizePosition = (
     position: CellPosition,
+    rowsCount: number,
+    columnsCount: number,
 ): CellPosition => ({
     row: Math.max(
         0,
         Math.min(
             position.row,
-            DEFAULT_ROWS - 1,
+            rowsCount - 1,
         ),
     ),
-
     col: Math.max(
         0,
         Math.min(
             position.col,
-            DEFAULT_COLUMNS - 1,
+            columnsCount - 1,
         ),
     ),
 });
@@ -145,29 +197,6 @@ const isCellInRange = (
     );
 };
 
-const columnName = (
-    index: number,
-) => {
-    let name = '';
-    let number = index + 1;
-
-    while (number > 0) {
-        const remainder =
-            (number - 1) % 26;
-
-        name =
-            String.fromCharCode(
-                65 + remainder,
-            ) + name;
-
-        number = Math.floor(
-            (number - 1) / 26,
-        );
-    }
-
-    return name;
-};
-
 const parseClipboard = (
     text: string,
 ): string[][] =>
@@ -183,24 +212,31 @@ export default function ExcelEditor({
     content,
     onChange,
 }: ExcelEditorProps) {
+    const [workbook, setWorkbook] =
+        useState<ExcelWorkbook | null>(
+            null,
+        );
+
+    const [activeSheetIndex, setActiveSheetIndex] =
+        useState(0);
+
     const [rows, setRows] =
         useState<Cell[][]>(
             createEmptyRows,
         );
 
-    const [
-        columnWidths,
-        setColumnWidths,
-    ] = useState<number[]>(
-        createDefaultColumnWidths,
-    );
+    const [columnWidths, setColumnWidths] =
+        useState<number[]>(
+            createDefaultColumnWidths,
+        );
 
-    const [
-        rowHeights,
-        setRowHeights,
-    ] = useState<number[]>(
-        createDefaultRowHeights,
-    );
+    const [rowHeights, setRowHeights] =
+        useState<number[]>(
+            createDefaultRowHeights,
+        );
+
+    const [mergedCells, setMergedCells] =
+        useState<ExcelMerge[]>([]);
 
     const [selectedCell, setSelectedCell] =
         useState<CellPosition>({
@@ -208,67 +244,43 @@ export default function ExcelEditor({
             col: 0,
         });
 
-    const [
-        selectionRange,
-        setSelectionRange,
-    ] = useState<CellRange | null>(
-        null,
-    );
+    const [selectionRange, setSelectionRange] =
+        useState<CellRange | null>(
+            null,
+        );
 
-    const [
-        editingCell,
-        setEditingCell,
-    ] = useState<CellPosition | null>(
-        null,
-    );
+    const [editingCell, setEditingCell] =
+        useState<CellPosition | null>(
+            null,
+        );
 
-    const [
-        editingValue,
-        setEditingValue,
-    ] = useState('');
+    const [editingValue, setEditingValue] =
+        useState('');
 
-    const [
-        formulaValue,
-        setFormulaValue,
-    ] = useState('');
+    const [formulaValue, setFormulaValue] =
+        useState('');
 
-    const [
-        resizingColumn,
-        setResizingColumn,
-    ] = useState<number | null>(
-        null,
-    );
+    const [resizingColumn, setResizingColumn] =
+        useState<number | null>(null);
 
-    const [
-        resizingRow,
-        setResizingRow,
-    ] = useState<number | null>(
-        null,
-    );
+    const [resizingRow, setResizingRow] =
+        useState<number | null>(null);
 
-    const [
-        resizeStartX,
-        setResizeStartX,
-    ] = useState(0);
+    const [resizeStartX, setResizeStartX] =
+        useState(0);
 
-    const [
-        resizeStartY,
-        setResizeStartY,
-    ] = useState(0);
+    const [resizeStartY, setResizeStartY] =
+        useState(0);
 
-    const [
-        resizeStartWidth,
-        setResizeStartWidth,
-    ] = useState(
-        DEFAULT_COLUMN_WIDTH,
-    );
+    const [resizeStartWidth, setResizeStartWidth] =
+        useState(
+            DEFAULT_COLUMN_WIDTH,
+        );
 
-    const [
-        resizeStartHeight,
-        setResizeStartHeight,
-    ] = useState(
-        DEFAULT_ROW_HEIGHT,
-    );
+    const [resizeStartHeight, setResizeStartHeight] =
+        useState(
+            DEFAULT_ROW_HEIGHT,
+        );
 
     const inputRef =
         useRef<HTMLInputElement>(null);
@@ -278,203 +290,99 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | LOAD
+    | LOAD IMPORTED WORKBOOK
     |--------------------------------------------------------------------------
     */
 
     useEffect(() => {
         if (!content) {
-            setRows(createEmptyRows());
+            const emptyRows =
+                createEmptyRows();
 
+            setWorkbook(null);
+            setActiveSheetIndex(0);
+            setRows(emptyRows);
             setColumnWidths(
                 createDefaultColumnWidths(),
             );
-
             setRowHeights(
                 createDefaultRowHeights(),
             );
+            setMergedCells([]);
 
             return;
         }
 
         try {
             const parsed =
-                JSON.parse(content);
+                JSON.parse(
+                    content,
+                ) as ExcelWorkbook;
 
             /*
-             * New spreadsheet structure
-             */
+            |--------------------------------------------------------------------------
+            | Imported EDTS workbook
+            |--------------------------------------------------------------------------
+            */
 
             if (
                 parsed &&
-                typeof parsed ===
-                    'object' &&
-                !Array.isArray(parsed) &&
+                parsed.type ===
+                    'spreadsheet' &&
                 Array.isArray(
-                    parsed.rows,
-                )
+                    parsed.sheets,
+                ) &&
+                parsed.sheets.length > 0
             ) {
-                const normalized =
-                    createEmptyRows();
+                setWorkbook(parsed);
 
-                parsed.rows.forEach(
-                    (
-                        row: Cell[],
-                        rowIndex: number,
-                    ) => {
-                        if (
-                            rowIndex >=
-                            DEFAULT_ROWS
-                        ) {
-                            return;
-                        }
+                const initialSheet =
+                    Math.max(
+                        0,
+                        Math.min(
+                            parsed.activeSheet ??
+                                0,
+                            parsed.sheets.length -
+                                1,
+                        ),
+                    );
 
-                        if (
-                            !Array.isArray(
-                                row,
-                            )
-                        ) {
-                            return;
-                        }
-
-                        row.forEach(
-                            (
-                                cell: Cell,
-                                colIndex: number,
-                            ) => {
-                                if (
-                                    colIndex >=
-                                    DEFAULT_COLUMNS
-                                ) {
-                                    return;
-                                }
-
-                                normalized[
-                                    rowIndex
-                                ][colIndex] = {
-                                    value:
-                                        cell?.value ??
-                                        '',
-                                };
-                            },
-                        );
-                    },
+                setActiveSheetIndex(
+                    initialSheet,
                 );
 
-                setRows(normalized);
-
-                /*
-                 * Column widths
-                 */
-
-                const widths =
-                    createDefaultColumnWidths();
-
-                if (
-                    Array.isArray(
-                        parsed.columnWidths,
-                    )
-                ) {
-                    parsed.columnWidths.forEach(
-                        (
-                            width: number,
-                            index: number,
-                        ) => {
-                            if (
-                                index >=
-                                DEFAULT_COLUMNS
-                            ) {
-                                return;
-                            }
-
-                            if (
-                                Number.isFinite(
-                                    width,
-                                )
-                            ) {
-                                widths[
-                                    index
-                                ] = Math.max(
-                                    MIN_COLUMN_WIDTH,
-                                    Math.min(
-                                        MAX_COLUMN_WIDTH,
-                                        width,
-                                    ),
-                                );
-                            }
-                        },
-                    );
-                }
-
-                setColumnWidths(
-                    widths,
-                );
-
-                /*
-                 * Row heights
-                 */
-
-                const heights =
-                    createDefaultRowHeights();
-
-                if (
-                    Array.isArray(
-                        parsed.rowHeights,
-                    )
-                ) {
-                    parsed.rowHeights.forEach(
-                        (
-                            height: number,
-                            index: number,
-                        ) => {
-                            if (
-                                index >=
-                                DEFAULT_ROWS
-                            ) {
-                                return;
-                            }
-
-                            if (
-                                Number.isFinite(
-                                    height,
-                                )
-                            ) {
-                                heights[
-                                    index
-                                ] = Math.max(
-                                    MIN_ROW_HEIGHT,
-                                    Math.min(
-                                        MAX_ROW_HEIGHT,
-                                        height,
-                                    ),
-                                );
-                            }
-                        },
-                    );
-                }
-
-                setRowHeights(
-                    heights,
+                loadSheet(
+                    parsed.sheets[
+                        initialSheet
+                    ],
                 );
 
                 return;
             }
 
             /*
-             * Backward compatibility
-             * with previous array format.
-             */
+            |--------------------------------------------------------------------------
+            | Old rows-only format
+            |--------------------------------------------------------------------------
+            */
 
             if (
-                Array.isArray(parsed)
+                parsed &&
+                Array.isArray(
+                    (parsed as any).rows,
+                )
             ) {
+                const oldRows =
+                    (parsed as any)
+                        .rows as Cell[][];
+
                 const normalized =
                     createEmptyRows();
 
-                parsed.forEach(
+                oldRows.forEach(
                     (
-                        row: Cell[],
-                        rowIndex: number,
+                        row,
+                        rowIndex,
                     ) => {
                         if (
                             rowIndex >=
@@ -493,8 +401,8 @@ export default function ExcelEditor({
 
                         row.forEach(
                             (
-                                cell: Cell,
-                                colIndex: number,
+                                cell,
+                                colIndex,
                             ) => {
                                 if (
                                     colIndex >=
@@ -505,44 +413,339 @@ export default function ExcelEditor({
 
                                 normalized[
                                     rowIndex
-                                ][colIndex] = {
+                                ][
+                                    colIndex
+                                ] = {
                                     value:
                                         cell?.value ??
                                         '',
+                                    formula:
+                                        cell?.formula,
                                 };
                             },
                         );
                     },
                 );
 
+                setWorkbook(null);
                 setRows(normalized);
+
+                setColumnWidths(
+                    Array.isArray(
+                        (parsed as any)
+                            .columnWidths,
+                    )
+                        ? (parsed as any)
+                              .columnWidths
+                        : createDefaultColumnWidths(),
+                );
+
+                setRowHeights(
+                    Array.isArray(
+                        (parsed as any)
+                            .rowHeights,
+                    )
+                        ? (parsed as any)
+                              .rowHeights
+                        : createDefaultRowHeights(),
+                );
+
+                setMergedCells([]);
+
+                return;
             }
-        } catch {
+
+            throw new Error(
+                'Unknown workbook format',
+            );
+        } catch (error) {
+            console.error(
+                'Failed to load Excel workbook:',
+                error,
+            );
+
+            setWorkbook(null);
             setRows(
                 createEmptyRows(),
             );
-
             setColumnWidths(
                 createDefaultColumnWidths(),
             );
-
             setRowHeights(
                 createDefaultRowHeights(),
             );
+            setMergedCells([]);
         }
     }, [content]);
 
     /*
     |--------------------------------------------------------------------------
-    | SAVE
+    | LOAD SHEET
     |--------------------------------------------------------------------------
     */
 
-    const emitSpreadsheet = (
+    const loadSheet = (
+        sheet: ExcelSheet,
+    ) => {
+        const sourceRows =
+            Array.isArray(sheet.cells)
+                ? sheet.cells
+                : [];
+
+        const sourceRowCount =
+            sourceRows.length;
+
+        const sourceColumnCount =
+            sourceRows.reduce(
+                (
+                    maximum,
+                    row,
+                ) =>
+                    Math.max(
+                        maximum,
+                        Array.isArray(
+                            row,
+                        )
+                            ? row.length
+                            : 0,
+                    ),
+                0,
+            );
+
+        const rowCount = Math.max(
+            DEFAULT_ROWS,
+            sourceRowCount,
+        );
+
+        const columnCount = Math.max(
+            DEFAULT_COLUMNS,
+            sourceColumnCount,
+        );
+
+        const normalized: Cell[][] =
+            Array.from(
+                {
+                    length: rowCount,
+                },
+                (_, rowIndex) =>
+                    Array.from(
+                        {
+                            length:
+                                columnCount,
+                        },
+                        (_, colIndex) => {
+                            const cell =
+                                sourceRows[
+                                    rowIndex
+                                ]?.[
+                                    colIndex
+                                ];
+
+                            return {
+                                value:
+                                    cell?.value ??
+                                    '',
+                                formula:
+                                    cell?.formula,
+                            };
+                        },
+                    ),
+            );
+
+        setRows(normalized);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Column widths
+        |--------------------------------------------------------------------------
+        */
+
+        const widths =
+            Array.from(
+                {
+                    length:
+                        columnCount,
+                },
+                (_, index) => {
+                    const width =
+                        sheet
+                            .columnWidths?.[
+                            index
+                        ];
+
+                    if (
+                        typeof width ===
+                        'number'
+                    ) {
+                        return Math.max(
+                            MIN_COLUMN_WIDTH,
+                            Math.min(
+                                MAX_COLUMN_WIDTH,
+                                width,
+                            ),
+                        );
+                    }
+
+                    return DEFAULT_COLUMN_WIDTH;
+                },
+            );
+
+        setColumnWidths(
+            widths,
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Row heights
+        |--------------------------------------------------------------------------
+        */
+
+        const heights =
+            Array.from(
+                {
+                    length:
+                        rowCount,
+                },
+                (_, index) => {
+                    const height =
+                        sheet
+                            .rowHeights?.[
+                            index
+                        ];
+
+                    if (
+                        typeof height ===
+                        'number'
+                    ) {
+                        return Math.max(
+                            MIN_ROW_HEIGHT,
+                            Math.min(
+                                MAX_ROW_HEIGHT,
+                                height,
+                            ),
+                        );
+                    }
+
+                    return DEFAULT_ROW_HEIGHT;
+                },
+            );
+
+        setRowHeights(
+            heights,
+        );
+
+        setMergedCells(
+            sheet.mergedCells ??
+                [],
+        );
+
+        setSelectedCell({
+            row: 0,
+            col: 0,
+        });
+
+        setSelectionRange(
+            null,
+        );
+
+        setEditingCell(null);
+
+        setEditingValue('');
+
+        setFormulaValue(
+            normalized[0]?.[0]
+                ?.value ?? '',
+        );
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | ACTIVE SHEET
+    |--------------------------------------------------------------------------
+    */
+
+    const activeSheet =
+        workbook?.sheets?.[
+            activeSheetIndex
+        ] ?? null;
+
+    /*
+    |--------------------------------------------------------------------------
+    | SAVE WORKBOOK
+    |--------------------------------------------------------------------------
+    */
+
+    const emitWorkbook = (
         nextRows: Cell[][],
         nextWidths: number[],
         nextHeights: number[],
     ) => {
+        /*
+        |--------------------------------------------------------------------------
+        | Existing workbook
+        |--------------------------------------------------------------------------
+        */
+
+        if (workbook) {
+            const nextSheets =
+                workbook.sheets.map(
+                    (
+                        sheet,
+                        index,
+                    ) => {
+                        if (
+                            index !==
+                            activeSheetIndex
+                        ) {
+                            return sheet;
+                        }
+
+                        return {
+                            ...sheet,
+                            cells:
+                                nextRows,
+                            columnWidths:
+                                nextWidths,
+                            rowHeights:
+                                nextHeights,
+                            mergedCells:
+                                mergedCells,
+                        };
+                    },
+                );
+
+            const nextWorkbook: ExcelWorkbook =
+                {
+                    ...workbook,
+                    version:
+                        workbook.version ??
+                        1,
+                    type: 'spreadsheet',
+                    sheets:
+                        nextSheets,
+                    activeSheet:
+                        activeSheetIndex,
+                };
+
+            setWorkbook(
+                nextWorkbook,
+            );
+
+            onChange(
+                JSON.stringify(
+                    nextWorkbook,
+                ),
+            );
+
+            return;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Old rows-only workbook
+        |--------------------------------------------------------------------------
+        */
+
         onChange(
             JSON.stringify({
                 version: 1,
@@ -569,6 +772,8 @@ export default function ExcelEditor({
         const normalized =
             normalizePosition(
                 position,
+                rows.length,
+                columnWidths.length,
             );
 
         setSelectedCell(
@@ -626,6 +831,8 @@ export default function ExcelEditor({
         const normalized =
             normalizePosition(
                 position,
+                rows.length,
+                columnWidths.length,
             );
 
         const value =
@@ -649,16 +856,24 @@ export default function ExcelEditor({
             normalized,
         );
 
-        setEditingValue(value);
+        setEditingValue(
+            value,
+        );
 
-        requestAnimationFrame(() => {
-            inputRef.current?.focus();
+        requestAnimationFrame(
+            () => {
+                inputRef.current?.focus();
 
-            inputRef.current?.setSelectionRange(
-                inputRef.current.value.length,
-                inputRef.current.value.length,
-            );
-        });
+                inputRef.current?.setSelectionRange(
+                    inputRef.current
+                        .value
+                        .length,
+                    inputRef.current
+                        .value
+                        .length,
+                );
+            },
+        );
     };
 
     const commitEditing = (
@@ -676,12 +891,14 @@ export default function ExcelEditor({
 
         nextRows[
             editingCell.row
-        ][editingCell.col].value =
+        ][
+            editingCell.col
+        ].value =
             editingValue;
 
         setRows(nextRows);
 
-        emitSpreadsheet(
+        emitWorkbook(
             nextRows,
             columnWidths,
             rowHeights,
@@ -690,40 +907,57 @@ export default function ExcelEditor({
         const current =
             editingCell;
 
-        setEditingCell(null);
+        setEditingCell(
+            null,
+        );
 
-        if (move === 'down') {
+        setFormulaValue(
+            editingValue,
+        );
+
+        if (
+            move === 'down'
+        ) {
             selectCell({
                 row: Math.min(
-                    current.row + 1,
-                    DEFAULT_ROWS - 1,
+                    current.row +
+                        1,
+                    rows.length -
+                        1,
                 ),
                 col: current.col,
             });
         }
 
-        if (move === 'right') {
+        if (
+            move === 'right'
+        ) {
             selectCell({
                 row: current.row,
                 col: Math.min(
-                    current.col + 1,
-                    DEFAULT_COLUMNS - 1,
+                    current.col +
+                        1,
+                    columnWidths.length -
+                        1,
                 ),
             });
         }
     };
 
-    const cancelEditing = () => {
-        setEditingCell(null);
+    const cancelEditing =
+        () => {
+            setEditingCell(
+                null,
+            );
 
-        setEditingValue(
-            rows[
-                selectedCell.row
-            ]?.[
-                selectedCell.col
-            ]?.value ?? '',
-        );
-    };
+            setEditingValue(
+                rows[
+                    selectedCell.row
+                ]?.[
+                    selectedCell.col
+                ]?.value ?? '',
+            );
+        };
 
     /*
     |--------------------------------------------------------------------------
@@ -744,83 +978,84 @@ export default function ExcelEditor({
 
         setRows(nextRows);
 
-        emitSpreadsheet(
+        setFormulaValue(
+            value,
+        );
+
+        emitWorkbook(
             nextRows,
             columnWidths,
             rowHeights,
         );
-
-        if (
-            isSameCell(
-                selectedCell,
-                {
-                    row,
-                    col,
-                },
-            )
-        ) {
-            setFormulaValue(value);
-        }
     };
 
     /*
     |--------------------------------------------------------------------------
-    | CLEAR CELLS
+    | DELETE
     |--------------------------------------------------------------------------
     */
 
-    const clearSelectedCells = () => {
-        const range =
-            getActiveRange();
+    const clearSelectedCells =
+        () => {
+            const range =
+                getActiveRange();
 
-        const nextRows =
-            cloneRows(rows);
+            const nextRows =
+                cloneRows(rows);
 
-        const minRow = Math.min(
-            range.start.row,
-            range.end.row,
-        );
+            const minRow =
+                Math.min(
+                    range.start.row,
+                    range.end.row,
+                );
 
-        const maxRow = Math.max(
-            range.start.row,
-            range.end.row,
-        );
+            const maxRow =
+                Math.max(
+                    range.start.row,
+                    range.end.row,
+                );
 
-        const minCol = Math.min(
-            range.start.col,
-            range.end.col,
-        );
+            const minCol =
+                Math.min(
+                    range.start.col,
+                    range.end.col,
+                );
 
-        const maxCol = Math.max(
-            range.start.col,
-            range.end.col,
-        );
+            const maxCol =
+                Math.max(
+                    range.start.col,
+                    range.end.col,
+                );
 
-        for (
-            let row = minRow;
-            row <= maxRow;
-            row++
-        ) {
             for (
-                let col = minCol;
-                col <= maxCol;
-                col++
+                let row = minRow;
+                row <= maxRow;
+                row++
             ) {
-                nextRows[row][col].value =
-                    '';
+                for (
+                    let col = minCol;
+                    col <= maxCol;
+                    col++
+                ) {
+                    nextRows[
+                        row
+                    ][col].value =
+                        '';
+                }
             }
-        }
 
-        setRows(nextRows);
+            setRows(nextRows);
 
-        emitSpreadsheet(
-            nextRows,
-            columnWidths,
-            rowHeights,
-        );
+            emitWorkbook(
+                nextRows,
+                columnWidths,
+                rowHeights,
+            );
 
-        setFormulaValue('');
-    };
+            setFormulaValue(
+                '',
+            );
+        };
 
     /*
     |--------------------------------------------------------------------------
@@ -836,25 +1071,29 @@ export default function ExcelEditor({
         const range =
             getActiveRange();
 
-        const minRow = Math.min(
-            range.start.row,
-            range.end.row,
-        );
+        const minRow =
+            Math.min(
+                range.start.row,
+                range.end.row,
+            );
 
-        const maxRow = Math.max(
-            range.start.row,
-            range.end.row,
-        );
+        const maxRow =
+            Math.max(
+                range.start.row,
+                range.end.row,
+            );
 
-        const minCol = Math.min(
-            range.start.col,
-            range.end.col,
-        );
+        const minCol =
+            Math.min(
+                range.start.col,
+                range.end.col,
+            );
 
-        const maxCol = Math.max(
-            range.start.col,
-            range.end.col,
-        );
+        const maxCol =
+            Math.max(
+                range.start.col,
+                range.end.col,
+            );
 
         const text =
             Array.from(
@@ -879,7 +1118,8 @@ export default function ExcelEditor({
                             ][
                                 minCol +
                                     colOffset
-                            ].value,
+                            ]?.value ??
+                            '',
                     ).join('\t'),
             ).join('\n');
 
@@ -926,7 +1166,7 @@ export default function ExcelEditor({
 
                 if (
                     targetRow >=
-                    DEFAULT_ROWS
+                    nextRows.length
                 ) {
                     return;
                 }
@@ -942,7 +1182,9 @@ export default function ExcelEditor({
 
                         if (
                             targetCol >=
-                            DEFAULT_COLUMNS
+                            nextRows[
+                                targetRow
+                            ].length
                         ) {
                             return;
                         }
@@ -960,7 +1202,7 @@ export default function ExcelEditor({
 
         setRows(nextRows);
 
-        emitSpreadsheet(
+        emitWorkbook(
             nextRows,
             columnWidths,
             rowHeights,
@@ -971,7 +1213,10 @@ export default function ExcelEditor({
 
         const pastedColumns =
             pasted.reduce(
-                (max, row) =>
+                (
+                    max,
+                    row,
+                ) =>
                     Math.max(
                         max,
                         row.length,
@@ -980,20 +1225,23 @@ export default function ExcelEditor({
             );
 
         setSelectionRange({
-            start: selectedCell,
+            start:
+                selectedCell,
             end: {
                 row: Math.min(
                     selectedCell.row +
                         pastedRows -
                         1,
-                    DEFAULT_ROWS - 1,
+                    nextRows.length -
+                        1,
                 ),
-
                 col: Math.min(
                     selectedCell.col +
                         pastedColumns -
                         1,
-                    DEFAULT_COLUMNS - 1,
+                    nextRows[0]
+                        .length -
+                        1,
                 ),
             },
         });
@@ -1012,8 +1260,13 @@ export default function ExcelEditor({
         event.preventDefault();
         event.stopPropagation();
 
-        setResizingColumn(col);
-        setResizingRow(null);
+        setResizingColumn(
+            col,
+        );
+
+        setResizingRow(
+            null,
+        );
 
         setResizeStartX(
             event.clientX,
@@ -1038,8 +1291,13 @@ export default function ExcelEditor({
         event.preventDefault();
         event.stopPropagation();
 
-        setResizingRow(row);
-        setResizingColumn(null);
+        setResizingRow(
+            row,
+        );
+
+        setResizingColumn(
+            null,
+        );
 
         setResizeStartY(
             event.clientY,
@@ -1053,13 +1311,14 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
-    | RESIZE HANDLERS
+    | COLUMN RESIZE HANDLER
     |--------------------------------------------------------------------------
     */
 
     useEffect(() => {
         if (
-            resizingColumn === null
+            resizingColumn ===
+            null
         ) {
             return;
         }
@@ -1096,25 +1355,28 @@ export default function ExcelEditor({
             );
         };
 
-        const handleMouseUp = () => {
-            setColumnWidths(
-                (current) => {
-                    const next = [
-                        ...current,
-                    ];
+        const handleMouseUp =
+            () => {
+                setColumnWidths(
+                    (current) => {
+                        const next = [
+                            ...current,
+                        ];
 
-                    emitSpreadsheet(
-                        rows,
-                        next,
-                        rowHeights,
-                    );
+                        emitWorkbook(
+                            rows,
+                            next,
+                            rowHeights,
+                        );
 
-                    return next;
-                },
-            );
+                        return next;
+                    },
+                );
 
-            setResizingColumn(null);
-        };
+                setResizingColumn(
+                    null,
+                );
+            };
 
         document.addEventListener(
             'mousemove',
@@ -1143,11 +1405,21 @@ export default function ExcelEditor({
         resizeStartWidth,
         rows,
         rowHeights,
+        workbook,
+        activeSheetIndex,
+        mergedCells,
     ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | ROW RESIZE HANDLER
+    |--------------------------------------------------------------------------
+    */
 
     useEffect(() => {
         if (
-            resizingRow === null
+            resizingRow ===
+            null
         ) {
             return;
         }
@@ -1175,33 +1447,37 @@ export default function ExcelEditor({
                         ...current,
                     ];
 
-                    next[resizingRow] =
-                        nextHeight;
+                    next[
+                        resizingRow
+                    ] = nextHeight;
 
                     return next;
                 },
             );
         };
 
-        const handleMouseUp = () => {
-            setRowHeights(
-                (current) => {
-                    const next = [
-                        ...current,
-                    ];
+        const handleMouseUp =
+            () => {
+                setRowHeights(
+                    (current) => {
+                        const next = [
+                            ...current,
+                        ];
 
-                    emitSpreadsheet(
-                        rows,
-                        columnWidths,
-                        next,
-                    );
+                        emitWorkbook(
+                            rows,
+                            columnWidths,
+                            next,
+                        );
 
-                    return next;
-                },
-            );
+                        return next;
+                    },
+                );
 
-            setResizingRow(null);
-        };
+                setResizingRow(
+                    null,
+                );
+            };
 
         document.addEventListener(
             'mousemove',
@@ -1230,6 +1506,9 @@ export default function ExcelEditor({
         resizeStartHeight,
         rows,
         columnWidths,
+        workbook,
+        activeSheetIndex,
+        mergedCells,
     ]);
 
     /*
@@ -1268,13 +1547,42 @@ export default function ExcelEditor({
 
         /*
         |--------------------------------------------------------------------------
+        | COPY
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            commandKey &&
+            key.toLowerCase() ===
+                'c'
+        ) {
+            return;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | PASTE
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            commandKey &&
+            key.toLowerCase() ===
+                'v'
+        ) {
+            return;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
         | SELECT ALL
         |--------------------------------------------------------------------------
         */
 
         if (
             commandKey &&
-            key.toLowerCase() === 'a'
+            key.toLowerCase() ===
+                'a'
         ) {
             event.preventDefault();
 
@@ -1290,9 +1598,12 @@ export default function ExcelEditor({
                 },
                 end: {
                     row:
-                        DEFAULT_ROWS - 1,
+                        rows.length -
+                        1,
                     col:
-                        DEFAULT_COLUMNS - 1,
+                        rows[0]
+                            ?.length -
+                            1,
                 },
             });
 
@@ -1322,7 +1633,9 @@ export default function ExcelEditor({
         |--------------------------------------------------------------------------
         */
 
-        if (key === 'Enter') {
+        if (
+            key === 'Enter'
+        ) {
             event.preventDefault();
 
             beginEditing(
@@ -1358,8 +1671,8 @@ export default function ExcelEditor({
             event.preventDefault();
 
             selectCell({
-                row: selectedCell.row,
-
+                row:
+                    selectedCell.row,
                 col: shiftKey
                     ? Math.max(
                           selectedCell.col -
@@ -1369,7 +1682,7 @@ export default function ExcelEditor({
                     : Math.min(
                           selectedCell.col +
                               1,
-                          DEFAULT_COLUMNS -
+                          columnWidths.length -
                               1,
                       ),
             });
@@ -1387,7 +1700,9 @@ export default function ExcelEditor({
             | CellPosition
             | null = null;
 
-        if (key === 'ArrowUp') {
+        if (
+            key === 'ArrowUp'
+        ) {
             nextPosition = {
                 row:
                     selectedCell.row -
@@ -1397,7 +1712,9 @@ export default function ExcelEditor({
             };
         }
 
-        if (key === 'ArrowDown') {
+        if (
+            key === 'ArrowDown'
+        ) {
             nextPosition = {
                 row:
                     selectedCell.row +
@@ -1407,7 +1724,9 @@ export default function ExcelEditor({
             };
         }
 
-        if (key === 'ArrowLeft') {
+        if (
+            key === 'ArrowLeft'
+        ) {
             nextPosition = {
                 row:
                     selectedCell.row,
@@ -1417,7 +1736,9 @@ export default function ExcelEditor({
             };
         }
 
-        if (key === 'ArrowRight') {
+        if (
+            key === 'ArrowRight'
+        ) {
             nextPosition = {
                 row:
                     selectedCell.row,
@@ -1433,6 +1754,8 @@ export default function ExcelEditor({
             const normalized =
                 normalizePosition(
                     nextPosition,
+                    rows.length,
+                    columnWidths.length,
                 );
 
             setSelectedCell(
@@ -1508,7 +1831,9 @@ export default function ExcelEditor({
     const handleFormulaBarChange = (
         value: string,
     ) => {
-        setFormulaValue(value);
+        setFormulaValue(
+            value,
+        );
 
         updateCell(
             selectedCell.row,
@@ -1554,11 +1879,13 @@ export default function ExcelEditor({
             position,
         );
 
-        setEditingCell(null);
+        setEditingCell(
+            null,
+        );
 
         setFormulaValue(
-            rows[row]?.[col]?.value ??
-                '',
+            rows[row]?.[col]
+                ?.value ?? '',
         );
     };
 
@@ -1578,27 +1905,26 @@ export default function ExcelEditor({
     |--------------------------------------------------------------------------
     */
 
-    const handleColumnHeaderClick = (
-        col: number,
-    ) => {
-        setSelectedCell({
-            row: 0,
-            col,
-        });
-
-        setSelectionRange({
-            start: {
+    const handleColumnHeaderClick =
+        (col: number) => {
+            setSelectedCell({
                 row: 0,
                 col,
-            },
+            });
 
-            end: {
-                row:
-                    DEFAULT_ROWS - 1,
-                col,
-            },
-        });
-    };
+            setSelectionRange({
+                start: {
+                    row: 0,
+                    col,
+                },
+                end: {
+                    row:
+                        rows.length -
+                        1,
+                    col,
+                },
+            });
+        };
 
     /*
     |--------------------------------------------------------------------------
@@ -1606,26 +1932,67 @@ export default function ExcelEditor({
     |--------------------------------------------------------------------------
     */
 
-    const handleRowHeaderClick = (
-        row: number,
-    ) => {
-        setSelectedCell({
-            row,
-            col: 0,
-        });
-
-        setSelectionRange({
-            start: {
+    const handleRowHeaderClick =
+        (row: number) => {
+            setSelectedCell({
                 row,
                 col: 0,
-            },
+            });
 
-            end: {
-                row,
-                col:
-                    DEFAULT_COLUMNS - 1,
-            },
-        });
+            setSelectionRange({
+                start: {
+                    row,
+                    col: 0,
+                },
+                end: {
+                    row,
+                    col:
+                        columnWidths.length -
+                        1,
+                },
+            });
+        };
+
+    /*
+    |--------------------------------------------------------------------------
+    | SHEET CHANGE
+    |--------------------------------------------------------------------------
+    */
+
+    const handleSheetChange = (
+        index: number,
+    ) => {
+        if (!workbook) {
+            return;
+        }
+
+        const sheet =
+            workbook.sheets[index];
+
+        if (!sheet) {
+            return;
+        }
+
+        setActiveSheetIndex(
+            index,
+        );
+
+        loadSheet(sheet);
+
+        const nextWorkbook = {
+            ...workbook,
+            activeSheet: index,
+        };
+
+        setWorkbook(
+            nextWorkbook,
+        );
+
+        onChange(
+            JSON.stringify(
+                nextWorkbook,
+            ),
+        );
     };
 
     /*
@@ -1639,7 +2006,10 @@ export default function ExcelEditor({
             () =>
                 `${columnName(
                     selectedCell.col,
-                )}${selectedCell.row + 1}`,
+                )}${
+                    selectedCell.row +
+                    1
+                }`,
             [selectedCell],
         );
 
@@ -1660,19 +2030,130 @@ export default function ExcelEditor({
 
     /*
     |--------------------------------------------------------------------------
+    | MERGED CELL HELPERS
+    |--------------------------------------------------------------------------
+    */
+
+    const getMergeForCell = (
+        row: number,
+        col: number,
+    ) => {
+        return mergedCells.find(
+            (merge) =>
+                row >=
+                    merge.startRow &&
+                row <=
+                    merge.endRow &&
+                col >=
+                    merge.startColumn &&
+                col <=
+                    merge.endColumn,
+        );
+    };
+
+    const isMergeStart = (
+        row: number,
+        col: number,
+    ) => {
+        const merge =
+            getMergeForCell(
+                row,
+                col,
+            );
+
+        return (
+            !!merge &&
+            merge.startRow === row &&
+            merge.startColumn === col
+        );
+    };
+
+    const isInsideMergeButNotStart =
+        (
+            row: number,
+            col: number,
+        ) => {
+            const merge =
+                getMergeForCell(
+                    row,
+                    col,
+                );
+
+            if (!merge) {
+                return false;
+            }
+
+            return !(
+                merge.startRow ===
+                    row &&
+                merge.startColumn ===
+                    col
+            );
+        };
+
+    /*
+    |--------------------------------------------------------------------------
     | RENDER
     |--------------------------------------------------------------------------
     */
 
     return (
         <div className="flex w-full min-w-0 flex-col overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
-            {/* ============================================================
+
+            {/* ================================================================
+                SHEET TABS
+            ================================================================= */}
+
+            {workbook &&
+                workbook.sheets.length >
+                    0 && (
+                    <div className="flex h-9 shrink-0 items-end overflow-x-auto border-b border-slate-300 bg-slate-100 px-2">
+
+                        {workbook.sheets.map(
+                            (
+                                sheet,
+                                index,
+                            ) => (
+                                <button
+                                    key={
+                                        sheet.name
+                                    }
+                                    type="button"
+                                    onClick={() =>
+                                        handleSheetChange(
+                                            index,
+                                        )
+                                    }
+                                    className={[
+                                        'h-8 min-w-[120px] border-x border-t px-4 text-xs font-medium transition',
+                                        index ===
+                                        activeSheetIndex
+                                            ? 'border-slate-300 bg-white text-slate-900'
+                                            : 'border-transparent text-slate-500 hover:bg-slate-200',
+                                    ].join(
+                                        ' ',
+                                    )}
+                                >
+                                    {
+                                        sheet.name
+                                    }
+                                </button>
+                            ),
+                        )}
+
+                    </div>
+                )}
+
+            {/* ================================================================
                 FORMULA BAR
-            ============================================================ */}
+            ================================================================= */}
 
             <div className="flex h-11 shrink-0 items-center border-b border-slate-300 bg-slate-50">
+
                 <div className="flex h-full w-20 shrink-0 items-center justify-center border-r border-slate-300 bg-white text-xs font-semibold text-slate-600">
-                    {currentCellAddress}
+                    {
+                        currentCellAddress
+                    }
                 </div>
 
                 <div className="flex h-full w-10 shrink-0 items-center justify-center border-r border-slate-300 text-sm font-semibold text-slate-500">
@@ -1680,19 +2161,25 @@ export default function ExcelEditor({
                 </div>
 
                 <input
-                    value={formulaValue}
-                    onChange={(event) =>
+                    value={
+                        formulaValue
+                    }
+                    onChange={(
+                        event,
+                    ) =>
                         handleFormulaBarChange(
-                            event.target.value,
+                            event.target
+                                .value,
                         )
                     }
                     className="h-full min-w-0 flex-1 border-0 bg-white px-3 text-sm text-slate-800 outline-none"
                 />
+
             </div>
 
-            {/* ============================================================
+            {/* ================================================================
                 GRID
-            ============================================================ */}
+            ================================================================= */}
 
             <div
                 ref={gridRef}
@@ -1719,44 +2206,45 @@ export default function ExcelEditor({
                     }}
                 >
                     <colgroup>
+
                         <col
                             style={{
                                 width: 48,
                             }}
                         />
 
-                        {Array.from(
-                            {
-                                length:
-                                    DEFAULT_COLUMNS,
-                            },
-                            (_, col) => (
+                        {columnWidths.map(
+                            (
+                                width,
+                                col,
+                            ) => (
                                 <col
-                                    key={col}
+                                    key={
+                                        col
+                                    }
                                     style={{
-                                        width:
-                                            columnWidths[
-                                                col
-                                            ] ??
-                                            DEFAULT_COLUMN_WIDTH,
+                                        width,
                                     }}
                                 />
                             ),
                         )}
+
                     </colgroup>
 
                     <thead>
                         <tr>
+
                             <th className="sticky left-0 top-0 z-40 h-8 w-12 border border-slate-300 bg-slate-100" />
 
-                            {Array.from(
-                                {
-                                    length:
-                                        DEFAULT_COLUMNS,
-                                },
-                                (_, col) => (
+                            {columnWidths.map(
+                                (
+                                    _,
+                                    col,
+                                ) => (
                                     <th
-                                        key={col}
+                                        key={
+                                            col
+                                        }
                                         onClick={() =>
                                             handleColumnHeaderClick(
                                                 col,
@@ -1765,19 +2253,17 @@ export default function ExcelEditor({
                                         className="group sticky top-0 z-30 h-8 select-none border border-slate-300 bg-slate-100 px-2 text-center text-xs font-semibold text-slate-600"
                                     >
                                         <div className="relative flex h-full items-center justify-center">
-                                            {columnName(
-                                                col,
-                                            )}
 
-                                            {/* COLUMN RESIZE HANDLE */}
+                                            {
+                                                columnName(
+                                                    col,
+                                                )
+                                            }
 
                                             <div
                                                 onMouseDown={(
                                                     event,
                                                 ) => {
-                                                    event.preventDefault();
-                                                    event.stopPropagation();
-
                                                     startColumnResize(
                                                         event,
                                                         col,
@@ -1792,10 +2278,12 @@ export default function ExcelEditor({
                                                 className="absolute right-[-4px] top-0 z-[60] h-full w-[8px] cursor-col-resize"
                                                 title="Resize column"
                                             />
+
                                         </div>
                                     </th>
                                 ),
                             )}
+
                         </tr>
                     </thead>
 
@@ -1815,7 +2303,6 @@ export default function ExcelEditor({
                                             DEFAULT_ROW_HEIGHT,
                                     }}
                                 >
-                                    {/* ROW HEADER */}
 
                                     <th
                                         onClick={() =>
@@ -1826,17 +2313,16 @@ export default function ExcelEditor({
                                         className="group sticky left-0 z-20 cursor-pointer select-none border border-slate-300 bg-slate-100 text-center text-xs font-medium text-slate-500"
                                     >
                                         <div className="relative flex h-full items-center justify-center">
-                                            {row + 1}
 
-                                            {/* ROW RESIZE HANDLE */}
+                                            {
+                                                row +
+                                                1
+                                            }
 
                                             <div
                                                 onMouseDown={(
                                                     event,
                                                 ) => {
-                                                    event.preventDefault();
-                                                    event.stopPropagation();
-
                                                     startRowResize(
                                                         event,
                                                         row,
@@ -1851,6 +2337,7 @@ export default function ExcelEditor({
                                                 className="absolute bottom-[-4px] left-0 z-[60] h-[8px] w-full cursor-row-resize"
                                                 title="Resize row"
                                             />
+
                                         </div>
                                     </th>
 
@@ -1883,10 +2370,56 @@ export default function ExcelEditor({
                                                     position,
                                                 );
 
+                                            const merge =
+                                                getMergeForCell(
+                                                    row,
+                                                    col,
+                                                );
+
+                                            const mergeStart =
+                                                isMergeStart(
+                                                    row,
+                                                    col,
+                                                );
+
+                                            const hiddenByMerge =
+                                                isInsideMergeButNotStart(
+                                                    row,
+                                                    col,
+                                                );
+
+                                            if (
+                                                hiddenByMerge
+                                            ) {
+                                                return null;
+                                            }
+
+                                            const rowSpan =
+                                                mergeStart &&
+                                                merge
+                                                    ? merge.endRow -
+                                                      merge.startRow +
+                                                      1
+                                                    : undefined;
+
+                                            const colSpan =
+                                                mergeStart &&
+                                                merge
+                                                    ? merge.endColumn -
+                                                      merge.startColumn +
+                                                      1
+                                                    : undefined;
+
                                             return (
                                                 <td
                                                     key={
                                                         col
+                                                    }
+                                                    rowSpan={
+                                                        rowSpan
+                                                    }
+                                                    colSpan={
+                                                        colSpan
                                                     }
                                                     onMouseDown={(
                                                         event,
@@ -1916,6 +2449,7 @@ export default function ExcelEditor({
                                                         ' ',
                                                     )}
                                                 >
+
                                                     {editing ? (
                                                         <input
                                                             ref={
@@ -1985,10 +2519,12 @@ export default function ExcelEditor({
                                                         !editing && (
                                                             <div className="pointer-events-none absolute -bottom-[2px] -right-[2px] z-30 h-1.5 w-1.5 bg-blue-600" />
                                                         )}
+
                                                 </td>
                                             );
                                         },
                                     )}
+
                                 </tr>
                             ),
                         )}
@@ -1996,11 +2532,12 @@ export default function ExcelEditor({
                 </table>
             </div>
 
-            {/* ============================================================
+            {/* ================================================================
                 STATUS BAR
-            ============================================================ */}
+            ================================================================= */}
 
             <div className="flex h-7 shrink-0 items-center border-t border-slate-300 bg-slate-50 px-3 text-[10px] text-slate-500">
+
                 <span>
                     {selectionRange
                         ? 'Range selected'
@@ -2008,11 +2545,13 @@ export default function ExcelEditor({
                 </span>
 
                 <span className="ml-auto">
-                    {DEFAULT_ROWS} rows ×{' '}
-                    {DEFAULT_COLUMNS}{' '}
+                    {rows.length} rows ×{' '}
+                    {columnWidths.length}{' '}
                     columns
                 </span>
+
             </div>
+
         </div>
     );
 }
