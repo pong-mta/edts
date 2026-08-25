@@ -92,7 +92,7 @@ export default function WordEditor({
     content,
     onChange,
 }: WordEditorProps) {
-    const [fontSize, setFontSize] = useState('16px');
+    const [fontSize, setFontSize] = useState('11');
 
     const editor = useEditor({
         extensions: [
@@ -132,12 +132,14 @@ export default function WordEditor({
             Image,
         ],
 
-        content,
+        content:
+            content ||
+            '<p><span style="font-size: 11pt;">Start writing your document...</span></p>',
 
         editorProps: {
             attributes: {
                 class:
-                    'prose prose-slate max-w-none min-h-[960px] outline-none',
+                    'prose prose-slate max-w-none min-h-[960px] outline-none text-[11pt]',
             },
         },
 
@@ -424,7 +426,33 @@ export default function WordEditor({
                     </div>
 
                     <select
-                        defaultValue="paragraph"
+                        value={
+                            editor.isActive('heading', {
+                                level: 1,
+                            })
+                                ? '1'
+                                : editor.isActive('heading', {
+                                        level: 2,
+                                    })
+                                    ? '2'
+                                    : editor.isActive('heading', {
+                                            level: 3,
+                                        })
+                                        ? '3'
+                                        : editor.isActive('heading', {
+                                                level: 4,
+                                            })
+                                            ? '4'
+                                            : editor.isActive('heading', {
+                                                    level: 5,
+                                                })
+                                                ? '5'
+                                                : editor.isActive('heading', {
+                                                        level: 6,
+                                                    })
+                                                    ? '6'
+                                                    : 'paragraph'
+                        }
                         onChange={(event) => {
                             const value = event.target.value;
 
@@ -441,7 +469,7 @@ export default function WordEditor({
                             editor
                                 .chain()
                                 .focus()
-                                .toggleHeading({
+                                .setHeading({
                                     level: Number(value) as
                                         1 | 2 | 3 | 4 | 5 | 6,
                                 })
