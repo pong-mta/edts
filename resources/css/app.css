@@ -329,3 +329,30 @@
 .word-document .selectedCell {
     background: #dbeafe;
 }
+
+
+/* ============================================================
+   eDTS TABLE COLUMN RESIZE
+   ============================================================ */
+
+.word-document .tableWrapper {
+    overflow-x: auto;
+}
+
+.word-document .resize-cursor {
+    cursor: col-resize;
+}
+
+.word-document .column-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    bottom: 0;
+    width: 5px;
+    pointer-events: none;
+    background: rgba(37, 99, 235, 0.35);
+}
+
+.word-document.resize-cursor {
+    cursor: col-resize;
+}
