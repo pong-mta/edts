@@ -36,16 +36,60 @@ const FONT_FAMILIES = [
         value: 'Arial',
     },
     {
+        label: 'Arial Black',
+        value: 'Arial Black',
+    },
+    {
         label: 'Calibri',
         value: 'Calibri',
+    },
+    {
+        label: 'Cambria',
+        value: 'Cambria',
+    },
+    {
+        label: 'Candara',
+        value: 'Candara',
+    },
+    {
+        label: 'Century Gothic',
+        value: 'Century Gothic',
+    },
+    {
+        label: 'Comic Sans MS',
+        value: 'Comic Sans MS',
+    },
+    {
+        label: 'Consolas',
+        value: 'Consolas',
+    },
+    {
+        label: 'Courier New',
+        value: 'Courier New',
+    },
+    {
+        label: 'Georgia',
+        value: 'Georgia',
+    },
+    {
+        label: 'Helvetica',
+        value: 'Helvetica',
+    },
+    {
+        label: 'Impact',
+        value: 'Impact',
+    },
+    {
+        label: 'Tahoma',
+        value: 'Tahoma',
     },
     {
         label: 'Times New Roman',
         value: 'Times New Roman',
     },
     {
-        label: 'Georgia',
-        value: 'Georgia',
+        label: 'Trebuchet MS',
+        value: 'Trebuchet MS',
     },
     {
         label: 'Verdana',
@@ -409,11 +453,26 @@ export default function WordEditor({
                             step="1"
                             value={fontSize}
                             onChange={(event) => {
-                                const value = Number(event.target.value);
+                                setFontSize(event.target.value);
+                            }}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                    event.preventDefault();
 
-                                if (value >= 5 && value <= 150) {
-                                    setFontSizeValue(event.target.value);
+                                    setFontSizeValue(
+                                        event.currentTarget.value,
+                                    );
+
+                                    editor
+                                        .chain()
+                                        .focus()
+                                        .run();
                                 }
+                            }}
+                            onBlur={(event) => {
+                                setFontSizeValue(
+                                    event.currentTarget.value,
+                                );
                             }}
                             className="h-8 w-[58px] rounded-l-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500"
                             title="Font size"
