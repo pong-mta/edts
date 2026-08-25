@@ -21,14 +21,25 @@ class LoginRequest extends FormRequest
 
     /**
      * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
-            'password' => ['required', 'string'],
+            'phone' => [
+                'required',
+                'string',
+                'regex:/^09[0-9]{9}$/',
+            ],
+
+            'password' => [
+                'required',
+                'string',
+            ],
+
+            'remember' => [
+                'sometimes',
+                'boolean',
+            ],
         ];
     }
 
@@ -41,15 +52,71 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
-            RateLimiter::hit($this->throttleKey());
+        /*
+        |--------------------------------------------------------------------------
+        | FIND USER
+        |--------------------------------------------------------------------------
+        */
+
+        $credentials = [
+            'phone' =>
+            $this->string('phone')->toString(),
+
+            'password' =>
+            $this->string('password')->toString(),
+        ];
+
+        /*
+        |--------------------------------------------------------------------------
+        | AUTHENTICATE
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            !Auth::attempt(
+                $credentials,
+                $this->boolean('remember')
+            )
+        ) {
+            RateLimiter::hit(
+                $this->throttleKey()
+            );
 
             throw ValidationException::withMessages([
-                'email' => __('auth.failed'),
+                'phone' =>
+                'The mobile number or password is incorrect.',
             ]);
         }
 
-        RateLimiter::clear($this->throttleKey());
+        /*
+        |--------------------------------------------------------------------------
+        | PHONE VERIFICATION
+        |--------------------------------------------------------------------------
+        */
+
+        $user = Auth::user();
+
+        if (
+            !$user ||
+            !$user->phone_verified
+        ) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'phone' =>
+                'Your mobile number has not been verified.',
+            ]);
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | CLEAR RATE LIMIT
+        |--------------------------------------------------------------------------
+        */
+
+        RateLimiter::clear(
+            $this->throttleKey()
+        );
     }
 
     /**
@@ -59,27 +126,51 @@ class LoginRequest extends FormRequest
      */
     public function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+        if (
+            !RateLimiter::tooManyAttempts(
+                $this->throttleKey(),
+                5
+            )
+        ) {
             return;
         }
 
-        event(new Lockout($this));
+        event(
+            new Lockout($this)
+        );
 
-        $seconds = RateLimiter::availableIn($this->throttleKey());
+        $seconds =
+            RateLimiter::availableIn(
+                $this->throttleKey()
+            );
 
         throw ValidationException::withMessages([
-            'email' => __('auth.throttle', [
-                'seconds' => $seconds,
-                'minutes' => ceil($seconds / 60),
+            'phone' =>
+            __('auth.throttle', [
+                'seconds' =>
+                $seconds,
+
+                'minutes' =>
+                ceil(
+                    $seconds / 60
+                ),
             ]),
         ]);
     }
 
     /**
-     * Get the rate limiting throttle key for the request.
+     * Get the login rate limiting throttle key.
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        return Str::transliterate(
+            Str::lower(
+                $this
+                    ->string('phone')
+                    ->toString()
+            )
+                . '|'
+                . $this->ip()
+        );
     }
 }
