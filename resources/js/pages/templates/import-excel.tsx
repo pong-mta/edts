@@ -619,6 +619,25 @@ export default function ImportExcel() {
                                         address
                                     ];
 
+                                    if (address === 'A1') {
+                                        console.log(
+                                            'A1 CELL OBJECT:',
+                                            sourceCell,
+                                        );
+
+                                        console.log(
+                                            'A1 CELL KEYS:',
+                                            Object.keys(
+                                                sourceCell,
+                                            ),
+                                        );
+
+                                        console.log(
+                                            'WORKBOOK CELLXFS:',
+                                            sourceWorkbook.Styles?.CellXf,
+                                        );
+                                    }
+
                                 if (
                                     !sourceCell
                                 ) {
