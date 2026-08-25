@@ -62,6 +62,12 @@ Route::middleware(['auth'])->group(function () {
         '/documents/{document}',
         [DocumentController::class, 'update']
     )->name('documents.update');
+
+
+
+    Route::get('/templates/import/excel', function () {
+        return Inertia::render('templates/import-excel');
+    })->name('templates.import.excel');
 });
 
 require __DIR__ . '/settings.php';
