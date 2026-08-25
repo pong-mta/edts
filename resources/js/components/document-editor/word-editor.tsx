@@ -1442,7 +1442,7 @@ export default function WordEditor({
                                 <input
                                     type="number"
                                     min="8"
-                                    max="500"
+                                    max="100"
                                     step="1"
                                     value={rowHeight}
                                     onChange={(event) => {
@@ -1462,13 +1462,15 @@ export default function WordEditor({
                                                 event.currentTarget
                                                     .value,
                                             );
+                                        const cssHeight =
+                                            Math.round(height * 1.333);
 
                                         if (
                                             !Number.isFinite(
                                                 height,
                                             ) ||
                                             height < 8 ||
-                                            height > 500
+                                            height > 100
                                         ) {
                                             return;
                                         }
@@ -1479,7 +1481,7 @@ export default function WordEditor({
                                             .updateAttributes(
                                                 'tableRow',
                                                 {
-                                                    height,
+                                                    height: cssHeight,
                                                 },
                                             )
                                             .run();
