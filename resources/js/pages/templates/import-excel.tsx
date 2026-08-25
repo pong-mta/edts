@@ -4,6 +4,7 @@ import React, {
 } from 'react';
 
 import AppLayout from '@/layouts/app-layout';
+
 import {
     Head,
     router,
@@ -43,6 +44,94 @@ export default function ImportExcel() {
 
     const [error, setError] =
         useState<string | null>(null);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Convert Excel Color
+    |--------------------------------------------------------------------------
+    */
+
+    const excelColorToHex = (
+        color: any,
+    ): string | undefined => {
+        if (!color) {
+            return undefined;
+        }
+
+        let rgb: string | undefined;
+
+        if (
+            typeof color.rgb ===
+            'string'
+        ) {
+            rgb = color.rgb;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Theme colors
+        |--------------------------------------------------------------------------
+        |
+        | SheetJS may return theme colors instead
+        | of RGB colors. We don't try to guess
+        | the actual theme color here.
+        |
+        */
+
+        if (!rgb) {
+            return undefined;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Excel ARGB → RGB
+        |--------------------------------------------------------------------------
+        */
+
+        if (rgb.length === 8) {
+            rgb = rgb.substring(2);
+        }
+
+        if (
+            rgb.length !== 6
+        ) {
+            return undefined;
+        }
+
+        return `#${rgb}`;
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | Convert Border
+    |--------------------------------------------------------------------------
+    */
+
+    const convertBorder = (
+        borderSide: any,
+    ): string | undefined => {
+        if (!borderSide) {
+            return undefined;
+        }
+
+        const style =
+            borderSide.style;
+
+        if (!style) {
+            return undefined;
+        }
+
+        const color =
+            excelColorToHex(
+                borderSide.color,
+            );
+
+        if (color) {
+            return `${style}:${color}`;
+        }
+
+        return style;
+    };
 
     /*
     |--------------------------------------------------------------------------
@@ -93,8 +182,30 @@ export default function ImportExcel() {
             const sourceWorkbook =
                 XLSX.read(buffer, {
                     type: 'array',
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Preserve formulas
+                    |--------------------------------------------------------------------------
+                    */
+
                     cellFormula: true,
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Preserve styles
+                    |--------------------------------------------------------------------------
+                    */
+
                     cellStyles: true,
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Preserve cell dates
+                    |--------------------------------------------------------------------------
+                    */
+
+                    cellDates: true,
                 });
 
             /*
@@ -111,6 +222,12 @@ export default function ImportExcel() {
                                 .Sheets[
                                 sheetName
                             ];
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Worksheet range
+                        |--------------------------------------------------------------------------
+                        */
 
                         const range =
                             worksheet['!ref'];
@@ -139,6 +256,12 @@ export default function ImportExcel() {
                                 decoded.e.c;
                         }
 
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Dimensions
+                        |--------------------------------------------------------------------------
+                        */
+
                         const rowCount =
                             Math.max(
                                 endRow -
@@ -157,7 +280,7 @@ export default function ImportExcel() {
 
                         /*
                         |--------------------------------------------------------------------------
-                        | Cells
+                        | Create cells
                         |--------------------------------------------------------------------------
                         */
 
@@ -178,6 +301,12 @@ export default function ImportExcel() {
                                         }),
                                     ),
                             );
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Read cells
+                        |--------------------------------------------------------------------------
+                        */
 
                         for (
                             let row =
@@ -220,6 +349,12 @@ export default function ImportExcel() {
                                     column -
                                     startColumn;
 
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Cell value
+                                |--------------------------------------------------------------------------
+                                */
+
                                 let value =
                                     '';
 
@@ -255,69 +390,247 @@ export default function ImportExcel() {
 
                                 /*
                                 |--------------------------------------------------------------------------
-                                | Basic formatting
+                                | Excel Style
                                 |--------------------------------------------------------------------------
                                 */
 
-                                if (
-                                    sourceCell.s
-                                ) {
-                                    const style =
-                                        sourceCell.s;
+                                const style =
+                                    sourceCell.s;
+
+                                if (style) {
+                                    /*
+                                    |--------------------------------------------------------------------------
+                                    | Font
+                                    |--------------------------------------------------------------------------
+                                    */
 
                                     if (
                                         style.font
                                     ) {
+                                        const font =
+                                            style.font;
+
                                         if (
-                                            style
-                                                .font
-                                                .bold
+                                            font.bold
                                         ) {
                                             cell.bold =
                                                 true;
                                         }
 
                                         if (
-                                            style
-                                                .font
-                                                .italic
+                                            font.italic
                                         ) {
                                             cell.italic =
                                                 true;
                                         }
 
                                         if (
-                                            style
-                                                .font
-                                                .underline
+                                            font.underline
                                         ) {
                                             cell.underline =
                                                 true;
                                         }
 
                                         if (
-                                            style
-                                                .font
-                                                .sz
+                                            typeof font.sz ===
+                                            'number'
                                         ) {
                                             cell.fontSize =
-                                                style
-                                                    .font
-                                                    .sz;
+                                                font.sz;
                                         }
 
                                         if (
-                                            style
-                                                .font
-                                                .name
+                                            typeof font.name ===
+                                            'string'
                                         ) {
                                             cell.fontFamily =
+                                                font.name;
+                                        }
+
+                                        const fontColor =
+                                            excelColorToHex(
+                                                font.color,
+                                            );
+
+                                        if (
+                                            fontColor
+                                        ) {
+                                            cell.color =
+                                                fontColor;
+                                        }
+                                    }
+
+                                    /*
+                                    |--------------------------------------------------------------------------
+                                    | Fill
+                                    |--------------------------------------------------------------------------
+                                    */
+
+                                    if (
+                                        style.fill
+                                    ) {
+                                        const fill =
+                                            style.fill;
+
+                                        /*
+                                        |--------------------------------------------------------------------------
+                                        | Foreground color
+                                        |--------------------------------------------------------------------------
+                                        */
+
+                                        const foregroundColor =
+                                            excelColorToHex(
+                                                fill.fgColor,
+                                            );
+
+                                        if (
+                                            foregroundColor
+                                        ) {
+                                            cell.backgroundColor =
+                                                foregroundColor;
+                                        }
+
+                                        /*
+                                        |--------------------------------------------------------------------------
+                                        | Background color
+                                        |--------------------------------------------------------------------------
+                                        */
+
+                                        if (
+                                            !cell.backgroundColor
+                                        ) {
+                                            const backgroundColor =
+                                                excelColorToHex(
+                                                    fill.bgColor,
+                                                );
+
+                                            if (
+                                                backgroundColor
+                                            ) {
+                                                cell.backgroundColor =
+                                                    backgroundColor;
+                                            }
+                                        }
+                                    }
+
+                                    /*
+                                    |--------------------------------------------------------------------------
+                                    | Alignment
+                                    |--------------------------------------------------------------------------
+                                    */
+
+                                    if (
+                                        style.alignment
+                                    ) {
+                                        const alignment =
+                                            style.alignment;
+
+                                        if (
+                                            alignment.horizontal ===
+                                                'left' ||
+                                            alignment.horizontal ===
+                                                'center' ||
+                                            alignment.horizontal ===
+                                                'right'
+                                        ) {
+                                            cell.horizontalAlign =
+                                                alignment.horizontal;
+                                        }
+
+                                        if (
+                                            alignment.vertical ===
+                                                'top' ||
+                                            alignment.vertical ===
+                                                'center' ||
+                                            alignment.vertical ===
+                                                'bottom'
+                                        ) {
+                                            cell.verticalAlign =
+                                                alignment.vertical ===
+                                                'center'
+                                                    ? 'middle'
+                                                    : alignment.vertical;
+                                        }
+
+                                        if (
+                                            alignment.wrapText
+                                        ) {
+                                            cell.wrapText =
+                                                true;
+                                        }
+                                    }
+
+                                    /*
+                                    |--------------------------------------------------------------------------
+                                    | Borders
+                                    |--------------------------------------------------------------------------
+                                    */
+
+                                    if (
+                                        style.border
+                                    ) {
+                                        const border: ExcelCell['border'] =
+                                            {};
+
+                                        border.top =
+                                            convertBorder(
                                                 style
-                                                    .font
-                                                    .name;
+                                                    .border
+                                                    .top,
+                                            );
+
+                                        border.right =
+                                            convertBorder(
+                                                style
+                                                    .border
+                                                    .right,
+                                            );
+
+                                        border.bottom =
+                                            convertBorder(
+                                                style
+                                                    .border
+                                                    .bottom,
+                                            );
+
+                                        border.left =
+                                            convertBorder(
+                                                style
+                                                    .border
+                                                    .left,
+                                            );
+
+                                        if (
+                                            border.top ||
+                                            border.right ||
+                                            border.bottom ||
+                                            border.left
+                                        ) {
+                                            cell.border =
+                                                border;
                                         }
                                     }
                                 }
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Number format
+                                |--------------------------------------------------------------------------
+                                */
+
+                                if (
+                                    typeof sourceCell.z ===
+                                    'string'
+                                ) {
+                                    cell.numberFormat =
+                                        sourceCell.z;
+                                }
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Store cell
+                                |--------------------------------------------------------------------------
+                                */
 
                                 cells[
                                     targetRow
@@ -497,6 +810,12 @@ export default function ImportExcel() {
                             );
                         }
 
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Sheet
+                        |--------------------------------------------------------------------------
+                        */
+
                         return {
                             name: sheetName,
 
@@ -507,6 +826,16 @@ export default function ImportExcel() {
                             rowHeights,
 
                             mergedCells,
+
+                            /*
+                            |--------------------------------------------------------------------------
+                            | Images
+                            |--------------------------------------------------------------------------
+                            |
+                            | We will handle embedded XLSX
+                            | images separately.
+                            |
+                            */
 
                             images: [],
                         };
@@ -528,6 +857,12 @@ export default function ImportExcel() {
 
                 activeSheet: 0,
             };
+
+            /*
+            |--------------------------------------------------------------------------
+            | Store workbook in state
+            |--------------------------------------------------------------------------
+            */
 
             setWorkbook(
                 edtsWorkbook,
@@ -579,6 +914,12 @@ export default function ImportExcel() {
             );
         }
     };
+
+    /*
+    |--------------------------------------------------------------------------
+    | Render
+    |--------------------------------------------------------------------------
+    */
 
     return (
         <AppLayout>
@@ -704,6 +1045,7 @@ export default function ImportExcel() {
                                         )}
 
                                 </div>
+
                             </div>
                         )}
 

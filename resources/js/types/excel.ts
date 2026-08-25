@@ -1,17 +1,26 @@
+export type ExcelBorder = {
+    style?: string;
+    color?: string;
+};
+
 export type ExcelCell = {
     value: string;
+
     formula?: string | null;
 
+    // Font
     bold?: boolean;
     italic?: boolean;
     underline?: boolean;
 
     fontSize?: number;
     fontFamily?: string;
-
     color?: string;
+
+    // Cell background
     backgroundColor?: string;
 
+    // Alignment
     horizontalAlign?:
         | 'left'
         | 'center'
@@ -22,12 +31,19 @@ export type ExcelCell = {
         | 'middle'
         | 'bottom';
 
+    // Text
+    wrapText?: boolean;
+
+    // Borders
     border?: {
         top?: string;
         right?: string;
         bottom?: string;
         left?: string;
     };
+
+    // Optional number formatting
+    numberFormat?: string;
 };
 
 export type ExcelMerge = {
