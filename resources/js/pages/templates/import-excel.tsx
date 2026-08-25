@@ -34,129 +34,7 @@ const IMPORT_STORAGE_KEY =
 
 /*
 |--------------------------------------------------------------------------
-| XML helpers
-|--------------------------------------------------------------------------
-*/
-
-function xmlValue(
-    element: Element | null,
-    attribute: string,
-): string | undefined {
-    if (!element) {
-        return undefined;
-    }
-
-    return (
-        element.getAttribute(attribute) ??
-        undefined
-    );
-}
-
-function xmlBool(
-    value: string | null,
-): boolean {
-    if (!value) {
-        return false;
-    }
-
-    return (
-        value === '1' ||
-        value === 'true' ||
-        value === 'on'
-    );
-}
-
-function colorToHex(
-    color: Element | null,
-): string | undefined {
-    if (!color) {
-        return undefined;
-    }
-
-    let value =
-        color.getAttribute('rgb');
-
-    if (value) {
-        if (value.length === 8) {
-            value = value.substring(2);
-        }
-
-        if (value.length === 6) {
-            return `#${value}`;
-        }
-    }
-
-    const indexed =
-        color.getAttribute('indexed');
-
-    if (indexed !== null) {
-        const indexedColors: Record<
-            string,
-            string
-        > = {
-            '0': '#000000',
-            '1': '#FFFFFF',
-            '2': '#FF0000',
-            '3': '#00FF00',
-            '4': '#0000FF',
-            '5': '#FFFF00',
-            '6': '#FF00FF',
-            '7': '#00FFFF',
-            '8': '#000000',
-            '9': '#FFFFFF',
-            '10': '#FF0000',
-            '11': '#00FF00',
-            '12': '#0000FF',
-            '13': '#FFFF00',
-            '14': '#FF00FF',
-            '15': '#00FFFF',
-        };
-
-        return indexedColors[indexed];
-    }
-
-    return undefined;
-}
-
-function getChildren(
-    parent: Element | null,
-    localName: string,
-): Element[] {
-    if (!parent) {
-        return [];
-    }
-
-    return Array.from(
-        parent.children,
-    ).filter(
-        (child) =>
-            child.localName ===
-            localName,
-    );
-}
-
-function getFirstChild(
-    parent: Element | null,
-    localName: string,
-): Element | null {
-    if (!parent) {
-        return null;
-    }
-
-    return (
-        Array.from(
-            parent.children,
-        ).find(
-            (child) =>
-                child.localName ===
-                localName,
-        ) ?? null
-    );
-}
-
-/*
-|--------------------------------------------------------------------------
-| Excel style model
+| Types
 |--------------------------------------------------------------------------
 */
 
@@ -208,785 +86,7 @@ type ParsedStyles = {
 
 /*
 |--------------------------------------------------------------------------
-| Border style
-|--------------------------------------------------------------------------
-*/
-
-function parseBorderSide(
-    side: Element | null,
-): string | undefined {
-    if (!side) {
-        return undefined;
-    }
-
-    const style =
-        side.getAttribute('style');
-
-    if (!style) {
-        return undefined;
-    }
-
-    const color =
-        colorToHex(
-            getFirstChild(
-                side,
-                'color',
-            ),
-        );
-
-    if (color) {
-        return `${style}:${color}`;
-    }
-
-    return style;
-}
-
-/*
-|--------------------------------------------------------------------------
-| Parse styles.xml
-|--------------------------------------------------------------------------
-*/
-
-function parseStylesXml(
-    xml: string,
-): ParsedStyles {
-    const parser =
-        new DOMParser();
-
-    const document =
-        parser.parseFromString(
-            xml,
-            'application/xml',
-        );
-
-    /*
-    |--------------------------------------------------------------------------
-    | Fonts
-    |--------------------------------------------------------------------------
-    */
-
-    const fontsElement =
-        getFirstChild(
-            document.documentElement,
-            'fonts',
-        );
-
-    const fonts: ParsedFont[] =
-        getChildren(
-            fontsElement,
-            'font',
-        ).map((fontElement) => {
-            const font: ParsedFont =
-                {};
-
-            if (
-                getFirstChild(
-                    fontElement,
-                    'b',
-                )
-            ) {
-                font.bold = true;
-            }
-
-            if (
-                getFirstChild(
-                    fontElement,
-                    'i',
-                )
-            ) {
-                font.italic = true;
-            }
-
-            if (
-                getFirstChild(
-                    fontElement,
-                    'u',
-                )
-            ) {
-                font.underline =
-                    true;
-            }
-
-            const size =
-                getFirstChild(
-                    fontElement,
-                    'sz',
-                );
-
-            if (size) {
-                const value =
-                    Number(
-                        size.getAttribute(
-                            'val',
-                        ),
-                    );
-
-                if (
-                    Number.isFinite(
-                        value,
-                    )
-                ) {
-                    font.fontSize =
-                        value;
-                }
-            }
-
-            const name =
-                getFirstChild(
-                    fontElement,
-                    'name',
-                );
-
-            if (name) {
-                font.fontFamily =
-                    name.getAttribute(
-                        'val',
-                    ) ??
-                    undefined;
-            }
-
-            font.color =
-                colorToHex(
-                    getFirstChild(
-                        fontElement,
-                        'color',
-                    ),
-                );
-
-            return font;
-        });
-
-    /*
-    |--------------------------------------------------------------------------
-    | Fills
-    |--------------------------------------------------------------------------
-    */
-
-    const fillsElement =
-        getFirstChild(
-            document.documentElement,
-            'fills',
-        );
-
-    const fills: ParsedFill[] =
-        getChildren(
-            fillsElement,
-            'fill',
-        ).map((fillElement) => {
-            const fill: ParsedFill =
-                {};
-
-            const pattern =
-                getFirstChild(
-                    fillElement,
-                    'patternFill',
-                );
-
-            if (pattern) {
-                const patternType =
-                    pattern.getAttribute(
-                        'patternType',
-                    );
-
-                if (
-                    patternType &&
-                    patternType !== 'none'
-                ) {
-                    const foreground =
-                        colorToHex(
-                            getFirstChild(
-                                pattern,
-                                'fgColor',
-                            ),
-                        );
-
-                    if (foreground) {
-                        fill.backgroundColor =
-                            foreground;
-                    }
-                }
-            }
-
-            return fill;
-        });
-
-    /*
-    |--------------------------------------------------------------------------
-    | Borders
-    |--------------------------------------------------------------------------
-    */
-
-    const bordersElement =
-        getFirstChild(
-            document.documentElement,
-            'borders',
-        );
-
-    const borders: ParsedBorder[] =
-        getChildren(
-            bordersElement,
-            'border',
-        ).map((borderElement) => {
-            const border: ParsedBorder =
-                {};
-
-            border.top =
-                parseBorderSide(
-                    getFirstChild(
-                        borderElement,
-                        'top',
-                    ),
-                );
-
-            border.right =
-                parseBorderSide(
-                    getFirstChild(
-                        borderElement,
-                        'right',
-                    ),
-                );
-
-            border.bottom =
-                parseBorderSide(
-                    getFirstChild(
-                        borderElement,
-                        'bottom',
-                    ),
-                );
-
-            border.left =
-                parseBorderSide(
-                    getFirstChild(
-                        borderElement,
-                        'left',
-                    ),
-                );
-
-            return border;
-        });
-
-    /*
-    |--------------------------------------------------------------------------
-    | Number formats
-    |--------------------------------------------------------------------------
-    */
-
-    const numFmtMap =
-        new Map<
-            number,
-            string
-        >();
-
-    const numFmtsElement =
-        getFirstChild(
-            document.documentElement,
-            'numFmts',
-        );
-
-    getChildren(
-        numFmtsElement,
-        'numFmt',
-    ).forEach((element) => {
-        const id = Number(
-            element.getAttribute(
-                'numFmtId',
-            ),
-        );
-
-        const format =
-            element.getAttribute(
-                'formatCode',
-            );
-
-        if (
-            Number.isFinite(id) &&
-            format
-        ) {
-            numFmtMap.set(
-                id,
-                format,
-            );
-        }
-    });
-
-    /*
-    |--------------------------------------------------------------------------
-    | Cell XFs
-    |--------------------------------------------------------------------------
-    */
-
-    const cellXfsElement =
-        getFirstChild(
-            document.documentElement,
-            'cellXfs',
-        );
-
-    const xfs =
-        getChildren(
-            cellXfsElement,
-            'xf',
-        );
-
-    const builtinNumberFormats: Record<
-        number,
-        string
-    > = {
-        0: 'General',
-        1: '0',
-        2: '0.00',
-        3: '#,##0',
-        4: '#,##0.00',
-        9: '0%',
-        10: '0.00%',
-        11: '0.00E+00',
-        12: '# ?/?',
-        13: '# ??/??',
-        14: 'm/d/yy',
-        15: 'd-mmm-yy',
-        16: 'd-mmm',
-        17: 'mmm-yy',
-        18: 'h:mm AM/PM',
-        19: 'h:mm:ss AM/PM',
-        20: 'h:mm',
-        21: 'h:mm:ss',
-        22: 'm/d/yy h:mm',
-        37: '#,##0 ;(#,##0)',
-        38: '#,##0 ;[Red](#,##0)',
-        39: '#,##0.00;(#,##0.00)',
-        40: '#,##0.00;[Red](#,##0.00)',
-        45: 'mm:ss',
-        46: '[h]:mm:ss',
-        47: 'mmss.0',
-        48: '##0.0E+0',
-        49: '@',
-    };
-
-    const styles: ParsedStyle[] =
-        xfs.map((xf) => {
-            const style: ParsedStyle =
-                {};
-
-            const fontId =
-                Number(
-                    xf.getAttribute(
-                        'fontId',
-                    ) ?? '0',
-                );
-
-            if (
-                fonts[fontId]
-            ) {
-                style.font =
-                    fonts[fontId];
-            }
-
-            const fillId =
-                Number(
-                    xf.getAttribute(
-                        'fillId',
-                    ) ?? '0',
-                );
-
-            if (
-                fills[fillId]
-            ) {
-                style.fill =
-                    fills[fillId];
-            }
-
-            const borderId =
-                Number(
-                    xf.getAttribute(
-                        'borderId',
-                    ) ?? '0',
-                );
-
-            if (
-                borders[borderId]
-            ) {
-                style.border =
-                    borders[
-                        borderId
-                    ];
-            }
-
-            const numFmtId =
-                Number(
-                    xf.getAttribute(
-                        'numFmtId',
-                    ) ?? '0',
-                );
-
-            if (
-                numFmtMap.has(
-                    numFmtId,
-                )
-            ) {
-                style.numberFormat =
-                    numFmtMap.get(
-                        numFmtId,
-                    );
-            } else if (
-                builtinNumberFormats[
-                    numFmtId
-                ]
-            ) {
-                style.numberFormat =
-                    builtinNumberFormats[
-                        numFmtId
-                    ];
-            }
-
-            const alignment =
-                getFirstChild(
-                    xf,
-                    'alignment',
-                );
-
-            if (alignment) {
-                const parsedAlignment: ParsedAlignment =
-                    {};
-
-                const horizontal =
-                    alignment.getAttribute(
-                        'horizontal',
-                    );
-
-                if (
-                    horizontal ===
-                        'left' ||
-                    horizontal ===
-                        'center' ||
-                    horizontal ===
-                        'right'
-                ) {
-                    parsedAlignment.horizontal =
-                        horizontal;
-                }
-
-                const vertical =
-                    alignment.getAttribute(
-                        'vertical',
-                    );
-
-                if (
-                    vertical ===
-                        'top' ||
-                    vertical ===
-                        'center' ||
-                    vertical ===
-                        'bottom'
-                ) {
-                    parsedAlignment.vertical =
-                        vertical ===
-                        'center'
-                            ? 'middle'
-                            : vertical;
-                }
-
-                if (
-                    xmlBool(
-                        alignment.getAttribute(
-                            'wrapText',
-                        ),
-                    )
-                ) {
-                    parsedAlignment.wrapText =
-                        true;
-                }
-
-                if (
-                    parsedAlignment.horizontal ||
-                    parsedAlignment.vertical ||
-                    parsedAlignment.wrapText
-                ) {
-                    style.alignment =
-                        parsedAlignment;
-                }
-            }
-
-            return style;
-        });
-
-    return {
-        styles,
-    };
-}
-
-/*
-|--------------------------------------------------------------------------
-| Parse worksheet style indexes
-|--------------------------------------------------------------------------
-*/
-
-function parseWorksheetStyles(
-    xml: string,
-): Map<string, number> {
-    const parser =
-        new DOMParser();
-
-    const document =
-        parser.parseFromString(
-            xml,
-            'application/xml',
-        );
-
-    const result =
-        new Map<string, number>();
-
-    const cells =
-        Array.from(
-            document.getElementsByTagName(
-                'c',
-            ),
-        );
-
-    cells.forEach((cell) => {
-        const reference =
-            cell.getAttribute('r');
-
-        if (!reference) {
-            return;
-        }
-
-        const styleIndex =
-            Number(
-                cell.getAttribute('s') ??
-                    '0',
-            );
-
-        result.set(
-            reference,
-            Number.isFinite(
-                styleIndex,
-            )
-                ? styleIndex
-                : 0,
-        );
-    });
-
-    return result;
-}
-
-/*
-|--------------------------------------------------------------------------
-| Parse worksheet dimensions
-|--------------------------------------------------------------------------
-*/
-
-function parseWorksheetDimensions(
-    xml: string,
-) {
-    const parser =
-        new DOMParser();
-
-    const document =
-        parser.parseFromString(
-            xml,
-            'application/xml',
-        );
-
-    const rows =
-        Array.from(
-            document.getElementsByTagName(
-                'row',
-            ),
-        );
-
-    const rowHeights =
-        new Map<number, number>();
-
-    rows.forEach((row) => {
-        const rowNumber =
-            Number(
-                row.getAttribute('r'),
-            );
-
-        const height =
-            Number(
-                row.getAttribute('ht'),
-            );
-
-        if (
-            Number.isFinite(
-                rowNumber,
-            ) &&
-            Number.isFinite(
-                height,
-            )
-        ) {
-            rowHeights.set(
-                rowNumber,
-                height * 1.333333,
-            );
-        }
-    });
-
-    const cols =
-        Array.from(
-            document.getElementsByTagName(
-                'col',
-            ),
-        );
-
-    const columnWidths =
-        new Map<number, number>();
-
-    cols.forEach((column) => {
-        const min =
-            Number(
-                column.getAttribute(
-                    'min',
-                ),
-            );
-
-        const max =
-            Number(
-                column.getAttribute(
-                    'max',
-                ),
-            );
-
-        const width =
-            Number(
-                column.getAttribute(
-                    'width',
-                ),
-            );
-
-        if (
-            !Number.isFinite(min) ||
-            !Number.isFinite(max) ||
-            !Number.isFinite(width)
-        ) {
-            return;
-        }
-
-        for (
-            let i = min;
-            i <= max;
-            i++
-        ) {
-            columnWidths.set(
-                i,
-                width * 7,
-            );
-        }
-    });
-
-    return {
-        rowHeights,
-        columnWidths,
-    };
-}
-
-/*
-|--------------------------------------------------------------------------
-| Apply parsed style
-|--------------------------------------------------------------------------
-*/
-
-function applyStyle(
-    cell: ExcelCell,
-    style: ParsedStyle | undefined,
-): ExcelCell {
-    if (!style) {
-        return cell;
-    }
-
-    if (style.font) {
-        if (
-            style.font.bold
-        ) {
-            cell.bold = true;
-        }
-
-        if (
-            style.font.italic
-        ) {
-            cell.italic = true;
-        }
-
-        if (
-            style.font.underline
-        ) {
-            cell.underline =
-                true;
-        }
-
-        if (
-            style.font.fontSize !==
-            undefined
-        ) {
-            cell.fontSize =
-                style.font.fontSize;
-        }
-
-        if (
-            style.font.fontFamily
-        ) {
-            cell.fontFamily =
-                style.font.fontFamily;
-        }
-
-        if (
-            style.font.color
-        ) {
-            cell.color =
-                style.font.color;
-        }
-    }
-
-    if (
-        style.fill?.backgroundColor
-    ) {
-        cell.backgroundColor =
-            style.fill.backgroundColor;
-    }
-
-    if (style.alignment) {
-        if (
-            style.alignment
-                .horizontal
-        ) {
-            cell.horizontalAlign =
-                style.alignment.horizontal;
-        }
-
-        if (
-            style.alignment
-                .vertical
-        ) {
-            cell.verticalAlign =
-                style.alignment.vertical;
-        }
-
-        if (
-            style.alignment.wrapText
-        ) {
-            cell.wrapText =
-                true;
-        }
-    }
-
-    if (style.border) {
-        cell.border =
-            style.border;
-    }
-
-    if (
-        style.numberFormat
-    ) {
-        cell.numberFormat =
-            style.numberFormat;
-    }
-
-    return cell;
-}
-
-/*
-|--------------------------------------------------------------------------
-| Image helpers
+| XML helpers
 |--------------------------------------------------------------------------
 */
 
@@ -1044,10 +144,103 @@ function resolveZipPath(
     );
 }
 
-function getRelationshipTarget(
-    xml: string,
-    relationshipId: string,
+function getFirstChild(
+    parent: Element | null,
+    localName: string,
+): Element | null {
+    if (!parent) {
+        return null;
+    }
+
+    return (
+        Array.from(
+            parent.children,
+        ).find(
+            (child) =>
+                child.localName ===
+                localName,
+        ) ?? null
+    );
+}
+
+function getChildren(
+    parent: Element | null,
+    localName: string,
+): Element[] {
+    if (!parent) {
+        return [];
+    }
+
+    return Array.from(
+        parent.children,
+    ).filter(
+        (child) =>
+            child.localName ===
+            localName,
+    );
+}
+
+function colorToHex(
+    color: Element | null,
 ): string | undefined {
+    if (!color) {
+        return undefined;
+    }
+
+    let rgb =
+        color.getAttribute('rgb');
+
+    if (rgb) {
+        if (rgb.length === 8) {
+            rgb = rgb.substring(2);
+        }
+
+        if (rgb.length === 6) {
+            return `#${rgb}`;
+        }
+    }
+
+    return undefined;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Parse styles.xml
+|--------------------------------------------------------------------------
+*/
+
+function parseBorderSide(
+    side: Element | null,
+): string | undefined {
+    if (!side) {
+        return undefined;
+    }
+
+    const style =
+        side.getAttribute('style');
+
+    if (!style) {
+        return undefined;
+    }
+
+    const color =
+        colorToHex(
+            getFirstChild(
+                side,
+                'color',
+            ),
+        );
+
+    if (color) {
+        return `${style}:${color}`;
+    }
+
+    return style;
+}
+
+function parseStylesXml(
+    xml: string,
+): ParsedStyles {
     const parser =
         new DOMParser();
 
@@ -1057,42 +250,769 @@ function getRelationshipTarget(
             'application/xml',
         );
 
-    const relationships =
+    /*
+    |--------------------------------------------------------------------------
+    | Fonts
+    |--------------------------------------------------------------------------
+    */
+
+    const fontsElement =
+        getFirstChild(
+            document.documentElement,
+            'fonts',
+        );
+
+    const fonts: ParsedFont[] =
+        getChildren(
+            fontsElement,
+            'font',
+        ).map(
+            (fontElement) => {
+                const font: ParsedFont =
+                    {};
+
+                if (
+                    getFirstChild(
+                        fontElement,
+                        'b',
+                    )
+                ) {
+                    font.bold = true;
+                }
+
+                if (
+                    getFirstChild(
+                        fontElement,
+                        'i',
+                    )
+                ) {
+                    font.italic = true;
+                }
+
+                if (
+                    getFirstChild(
+                        fontElement,
+                        'u',
+                    )
+                ) {
+                    font.underline =
+                        true;
+                }
+
+                const size =
+                    getFirstChild(
+                        fontElement,
+                        'sz',
+                    );
+
+                if (size) {
+                    const value =
+                        Number(
+                            size.getAttribute(
+                                'val',
+                            ),
+                        );
+
+                    if (
+                        Number.isFinite(
+                            value,
+                        )
+                    ) {
+                        font.fontSize =
+                            value;
+                    }
+                }
+
+                const name =
+                    getFirstChild(
+                        fontElement,
+                        'name',
+                    );
+
+                if (name) {
+                    font.fontFamily =
+                        name.getAttribute(
+                            'val',
+                        ) ??
+                        undefined;
+                }
+
+                font.color =
+                    colorToHex(
+                        getFirstChild(
+                            fontElement,
+                            'color',
+                        ),
+                    );
+
+                return font;
+            },
+        );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Fills
+    |--------------------------------------------------------------------------
+    */
+
+    const fillsElement =
+        getFirstChild(
+            document.documentElement,
+            'fills',
+        );
+
+    const fills: ParsedFill[] =
+        getChildren(
+            fillsElement,
+            'fill',
+        ).map(
+            (fillElement) => {
+                const fill: ParsedFill =
+                    {};
+
+                const pattern =
+                    getFirstChild(
+                        fillElement,
+                        'patternFill',
+                    );
+
+                if (pattern) {
+                    const patternType =
+                        pattern.getAttribute(
+                            'patternType',
+                        );
+
+                    if (
+                        patternType &&
+                        patternType !==
+                            'none'
+                    ) {
+                        const foreground =
+                            colorToHex(
+                                getFirstChild(
+                                    pattern,
+                                    'fgColor',
+                                ),
+                            );
+
+                        if (
+                            foreground
+                        ) {
+                            fill.backgroundColor =
+                                foreground;
+                        }
+                    }
+                }
+
+                return fill;
+            },
+        );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Borders
+    |--------------------------------------------------------------------------
+    */
+
+    const bordersElement =
+        getFirstChild(
+            document.documentElement,
+            'borders',
+        );
+
+    const borders: ParsedBorder[] =
+        getChildren(
+            bordersElement,
+            'border',
+        ).map(
+            (borderElement) => {
+                return {
+                    top:
+                        parseBorderSide(
+                            getFirstChild(
+                                borderElement,
+                                'top',
+                            ),
+                        ),
+
+                    right:
+                        parseBorderSide(
+                            getFirstChild(
+                                borderElement,
+                                'right',
+                            ),
+                        ),
+
+                    bottom:
+                        parseBorderSide(
+                            getFirstChild(
+                                borderElement,
+                                'bottom',
+                            ),
+                        ),
+
+                    left:
+                        parseBorderSide(
+                            getFirstChild(
+                                borderElement,
+                                'left',
+                            ),
+                        ),
+                };
+            },
+        );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Number formats
+    |--------------------------------------------------------------------------
+    */
+
+    const numFmtMap =
+        new Map<
+            number,
+            string
+        >();
+
+    const numFmtsElement =
+        getFirstChild(
+            document.documentElement,
+            'numFmts',
+        );
+
+    getChildren(
+        numFmtsElement,
+        'numFmt',
+    ).forEach(
+        (element) => {
+            const id =
+                Number(
+                    element.getAttribute(
+                        'numFmtId',
+                    ),
+                );
+
+            const format =
+                element.getAttribute(
+                    'formatCode',
+                );
+
+            if (
+                Number.isFinite(id) &&
+                format
+            ) {
+                numFmtMap.set(
+                    id,
+                    format,
+                );
+            }
+        },
+    );
+
+    const builtinNumberFormats: Record<
+        number,
+        string
+    > = {
+        0: 'General',
+        1: '0',
+        2: '0.00',
+        3: '#,##0',
+        4: '#,##0.00',
+        9: '0%',
+        10: '0.00%',
+        11: '0.00E+00',
+        12: '# ?/?',
+        13: '# ??/??',
+        14: 'm/d/yy',
+        15: 'd-mmm-yy',
+        16: 'd-mmm',
+        17: 'mmm-yy',
+        18: 'h:mm AM/PM',
+        19: 'h:mm:ss AM/PM',
+        20: 'h:mm',
+        21: 'h:mm:ss',
+        22: 'm/d/yy h:mm',
+        37: '#,##0 ;(#,##0)',
+        38: '#,##0 ;[Red](#,##0)',
+        39: '#,##0.00;(#,##0.00)',
+        40: '#,##0.00;[Red](#,##0.00)',
+        45: 'mm:ss',
+        46: '[h]:mm:ss',
+        47: 'mmss.0',
+        48: '##0.0E+0',
+        49: '@',
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cell XFs
+    |--------------------------------------------------------------------------
+    */
+
+    const cellXfsElement =
+        getFirstChild(
+            document.documentElement,
+            'cellXfs',
+        );
+
+    const xfs =
+        getChildren(
+            cellXfsElement,
+            'xf',
+        );
+
+    const styles: ParsedStyle[] =
+        xfs.map(
+            (xf) => {
+                const style: ParsedStyle =
+                    {};
+
+                const fontId =
+                    Number(
+                        xf.getAttribute(
+                            'fontId',
+                        ) ?? '0',
+                    );
+
+                if (
+                    fonts[fontId]
+                ) {
+                    style.font =
+                        fonts[
+                            fontId
+                        ];
+                }
+
+                const fillId =
+                    Number(
+                        xf.getAttribute(
+                            'fillId',
+                        ) ?? '0',
+                    );
+
+                if (
+                    fills[fillId]
+                ) {
+                    style.fill =
+                        fills[
+                            fillId
+                        ];
+                }
+
+                const borderId =
+                    Number(
+                        xf.getAttribute(
+                            'borderId',
+                        ) ?? '0',
+                    );
+
+                if (
+                    borders[
+                        borderId
+                    ]
+                ) {
+                    style.border =
+                        borders[
+                            borderId
+                        ];
+                }
+
+                const numFmtId =
+                    Number(
+                        xf.getAttribute(
+                            'numFmtId',
+                        ) ?? '0',
+                    );
+
+                style.numberFormat =
+                    numFmtMap.get(
+                        numFmtId,
+                    ) ??
+                    builtinNumberFormats[
+                        numFmtId
+                    ] ??
+                    'General';
+
+                const alignment =
+                    getFirstChild(
+                        xf,
+                        'alignment',
+                    );
+
+                if (alignment) {
+                    const parsedAlignment: ParsedAlignment =
+                        {};
+
+                    const horizontal =
+                        alignment.getAttribute(
+                            'horizontal',
+                        );
+
+                    if (
+                        horizontal ===
+                            'left' ||
+                        horizontal ===
+                            'center' ||
+                        horizontal ===
+                            'right'
+                    ) {
+                        parsedAlignment.horizontal =
+                            horizontal;
+                    }
+
+                    const vertical =
+                        alignment.getAttribute(
+                            'vertical',
+                        );
+
+                    if (
+                        vertical ===
+                            'top' ||
+                        vertical ===
+                            'center' ||
+                        vertical ===
+                            'bottom'
+                    ) {
+                        parsedAlignment.vertical =
+                            vertical ===
+                            'center'
+                                ? 'middle'
+                                : vertical;
+                    }
+
+                    const wrap =
+                        alignment.getAttribute(
+                            'wrapText',
+                        );
+
+                    if (
+                        wrap ===
+                            '1' ||
+                        wrap ===
+                            'true'
+                    ) {
+                        parsedAlignment.wrapText =
+                            true;
+                    }
+
+                    style.alignment =
+                        parsedAlignment;
+                }
+
+                return style;
+            },
+        );
+
+    return {
+        styles,
+    };
+}
+
+/*
+|--------------------------------------------------------------------------
+| Worksheet styles
+|--------------------------------------------------------------------------
+*/
+
+function parseWorksheetStyles(
+    xml: string,
+): Map<string, number> {
+    const parser =
+        new DOMParser();
+
+    const document =
+        parser.parseFromString(
+            xml,
+            'application/xml',
+        );
+
+    const result =
+        new Map<string, number>();
+
+    const cells =
         Array.from(
             document.getElementsByTagName(
-                'Relationship',
+                'c',
             ),
         );
 
-    const relationship =
-        relationships.find(
-            (item) =>
-                item.getAttribute(
-                    'Id',
-                ) === relationshipId,
-        );
+    cells.forEach(
+        (cell) => {
+            const address =
+                cell.getAttribute(
+                    'r',
+                );
 
-    return (
-        relationship?.getAttribute(
-            'Target',
-        ) ?? undefined
+            if (!address) {
+                return;
+            }
+
+            const styleIndex =
+                Number(
+                    cell.getAttribute(
+                        's',
+                    ) ?? '0',
+                );
+
+            result.set(
+                address,
+                Number.isFinite(
+                    styleIndex,
+                )
+                    ? styleIndex
+                    : 0,
+            );
+        },
     );
+
+    return result;
 }
 
-function parsePixelsFromEmu(
+/*
+|--------------------------------------------------------------------------
+| Worksheet dimensions
+|--------------------------------------------------------------------------
+*/
+
+function parseWorksheetDimensions(
+    xml: string,
+) {
+    const parser =
+        new DOMParser();
+
+    const document =
+        parser.parseFromString(
+            xml,
+            'application/xml',
+        );
+
+    const rowHeights =
+        new Map<number, number>();
+
+    Array.from(
+        document.getElementsByTagName(
+            'row',
+        ),
+    ).forEach(
+        (row) => {
+            const number =
+                Number(
+                    row.getAttribute(
+                        'r',
+                    ),
+                );
+
+            const height =
+                Number(
+                    row.getAttribute(
+                        'ht',
+                    ),
+                );
+
+            if (
+                Number.isFinite(
+                    number,
+                ) &&
+                Number.isFinite(
+                    height,
+                )
+            ) {
+                rowHeights.set(
+                    number,
+                    height *
+                        1.333333,
+                );
+            }
+        },
+    );
+
+    const columnWidths =
+        new Map<number, number>();
+
+    Array.from(
+        document.getElementsByTagName(
+            'col',
+        ),
+    ).forEach(
+        (column) => {
+            const min =
+                Number(
+                    column.getAttribute(
+                        'min',
+                    ),
+                );
+
+            const max =
+                Number(
+                    column.getAttribute(
+                        'max',
+                    ),
+                );
+
+            const width =
+                Number(
+                    column.getAttribute(
+                        'width',
+                    ),
+                );
+
+            if (
+                !Number.isFinite(
+                    min,
+                ) ||
+                !Number.isFinite(
+                    max,
+                ) ||
+                !Number.isFinite(
+                    width,
+                )
+            ) {
+                return;
+            }
+
+            for (
+                let index = min;
+                index <= max;
+                index++
+            ) {
+                columnWidths.set(
+                    index,
+                    width * 7,
+                );
+            }
+        },
+    );
+
+    return {
+        rowHeights,
+        columnWidths,
+    };
+}
+
+/*
+|--------------------------------------------------------------------------
+| Apply style
+|--------------------------------------------------------------------------
+*/
+
+function applyStyle(
+    cell: ExcelCell,
+    style:
+        | ParsedStyle
+        | undefined,
+): ExcelCell {
+    if (!style) {
+        return cell;
+    }
+
+    if (style.font) {
+        cell.bold =
+            style.font.bold;
+
+        cell.italic =
+            style.font.italic;
+
+        cell.underline =
+            style.font.underline;
+
+        if (
+            style.font.fontSize !==
+            undefined
+        ) {
+            cell.fontSize =
+                style.font.fontSize;
+        }
+
+        if (
+            style.font.fontFamily
+        ) {
+            cell.fontFamily =
+                style.font.fontFamily;
+        }
+
+        if (
+            style.font.color
+        ) {
+            cell.color =
+                style.font.color;
+        }
+    }
+
+    if (
+        style.fill
+            ?.backgroundColor
+    ) {
+        cell.backgroundColor =
+            style.fill.backgroundColor;
+    }
+
+    if (style.alignment) {
+        if (
+            style.alignment
+                .horizontal
+        ) {
+            cell.horizontalAlign =
+                style.alignment.horizontal;
+        }
+
+        if (
+            style.alignment
+                .vertical
+        ) {
+            cell.verticalAlign =
+                style.alignment.vertical;
+        }
+
+        if (
+            style.alignment.wrapText
+        ) {
+            (
+                cell as ExcelCell & {
+                    wrapText?: boolean;
+                }
+            ).wrapText = true;
+        }
+    }
+
+    if (style.border) {
+        cell.border =
+            style.border;
+    }
+
+    if (
+        style.numberFormat
+    ) {
+        (
+            cell as ExcelCell & {
+                numberFormat?: string;
+            }
+        ).numberFormat =
+            style.numberFormat;
+    }
+
+    return cell;
+}
+
+/*
+|--------------------------------------------------------------------------
+| EMU → pixels
+|--------------------------------------------------------------------------
+*/
+
+function emuToPixels(
     value: number,
 ): number {
-    /*
-     * 914400 EMUs = 1 inch
-     *
-     * 96 CSS pixels = 1 inch
-     */
-
     return (
         value *
         (96 / 914400)
     );
 }
+
+/*
+|--------------------------------------------------------------------------
+| Image anchor
+|--------------------------------------------------------------------------
+*/
 
 function parseImageAnchor(
     anchor: Element,
@@ -1109,15 +1029,6 @@ function parseImageAnchor(
             'to',
         );
 
-    const col =
-        Number(
-            getFirstChild(
-                from,
-                'col',
-            )?.textContent ??
-                '0',
-        );
-
     const row =
         Number(
             getFirstChild(
@@ -1127,11 +1038,11 @@ function parseImageAnchor(
                 '0',
         );
 
-    const colOffset =
+    const column =
         Number(
             getFirstChild(
                 from,
-                'colOff',
+                'col',
             )?.textContent ??
                 '0',
         );
@@ -1145,101 +1056,21 @@ function parseImageAnchor(
                 '0',
         );
 
+    const colOffset =
+        Number(
+            getFirstChild(
+                from,
+                'colOff',
+            )?.textContent ??
+                '0',
+        );
+
     let width = 120;
     let height = 80;
 
     /*
     |--------------------------------------------------------------------------
-    | Two-cell anchor
-    |--------------------------------------------------------------------------
-    */
-
-    if (to) {
-        const toCol =
-            Number(
-                getFirstChild(
-                    to,
-                    'col',
-                )?.textContent ??
-                    String(col),
-            );
-
-        const toRow =
-            Number(
-                getFirstChild(
-                    to,
-                    'row',
-                )?.textContent ??
-                    String(row),
-            );
-
-        const toColOffset =
-            Number(
-                getFirstChild(
-                    to,
-                    'colOff',
-                )?.textContent ??
-                    '0',
-            );
-
-        const toRowOffset =
-            Number(
-                getFirstChild(
-                    to,
-                    'rowOff',
-                )?.textContent ??
-                    '0',
-            );
-
-        /*
-         * Approximate using standard
-         * Excel column/row dimensions.
-         *
-         * The editor can later refine
-         * this against actual sheet
-         * dimensions.
-         */
-
-        const startX =
-            col * 100 +
-            parsePixelsFromEmu(
-                colOffset,
-            );
-
-        const endX =
-            toCol * 100 +
-            parsePixelsFromEmu(
-                toColOffset,
-            );
-
-        const startY =
-            row * 28 +
-            parsePixelsFromEmu(
-                rowOffset,
-            );
-
-        const endY =
-            toRow * 28 +
-            parsePixelsFromEmu(
-                toRowOffset,
-            );
-
-        width =
-            Math.max(
-                20,
-                endX - startX,
-            );
-
-        height =
-            Math.max(
-                20,
-                endY - startY,
-            );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | One-cell anchor
+    | oneCellAnchor
     |--------------------------------------------------------------------------
     */
 
@@ -1269,9 +1100,7 @@ function parseImageAnchor(
             cx > 0
         ) {
             width =
-                parsePixelsFromEmu(
-                    cx,
-                );
+                emuToPixels(cx);
         }
 
         if (
@@ -1279,31 +1108,115 @@ function parseImageAnchor(
             cy > 0
         ) {
             height =
-                parsePixelsFromEmu(
-                    cy,
-                );
+                emuToPixels(cy);
         }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | twoCellAnchor
+    |--------------------------------------------------------------------------
+    */
+
+    if (to) {
+        const toColumn =
+            Number(
+                getFirstChild(
+                    to,
+                    'col',
+                )?.textContent ??
+                    String(
+                        column,
+                    ),
+            );
+
+        const toRow =
+            Number(
+                getFirstChild(
+                    to,
+                    'row',
+                )?.textContent ??
+                    String(row),
+            );
+
+        const toColOffset =
+            Number(
+                getFirstChild(
+                    to,
+                    'colOff',
+                )?.textContent ??
+                    '0',
+            );
+
+        const toRowOffset =
+            Number(
+                getFirstChild(
+                    to,
+                    'rowOff',
+                )?.textContent ??
+                    '0',
+            );
+
+        const startX =
+            column * 100 +
+            emuToPixels(
+                colOffset,
+            );
+
+        const endX =
+            toColumn * 100 +
+            emuToPixels(
+                toColOffset,
+            );
+
+        const startY =
+            row * 28 +
+            emuToPixels(
+                rowOffset,
+            );
+
+        const endY =
+            toRow * 28 +
+            emuToPixels(
+                toRowOffset,
+            );
+
+        width =
+            Math.max(
+                20,
+                endX - startX,
+            );
+
+        height =
+            Math.max(
+                20,
+                endY - startY,
+            );
     }
 
     return {
         row,
-        column: col,
+        column,
+
         offsetX:
-            parsePixelsFromEmu(
+            emuToPixels(
                 colOffset,
             ),
+
         offsetY:
-            parsePixelsFromEmu(
+            emuToPixels(
                 rowOffset,
             ),
+
         width,
+
         height,
     };
 }
 
 /*
 |--------------------------------------------------------------------------
-| Extract Excel images from drawing XML
+| Extract images from XLSX
 |--------------------------------------------------------------------------
 */
 
@@ -1315,9 +1228,13 @@ async function extractSheetImages(
     const images: ExcelImage[] =
         [];
 
+    console.log(
+        `========== IMAGE EXTRACTION: ${sheetName} ==========`,
+    );
+
     /*
     |--------------------------------------------------------------------------
-    | Worksheet relationship file
+    | sheetN.xml.rels
     |--------------------------------------------------------------------------
     */
 
@@ -1325,6 +1242,11 @@ async function extractSheetImages(
         `xl/worksheets/_rels/sheet${
             sheetIndex + 1
         }.xml.rels`;
+
+    console.log(
+        'WORKSHEET RELS:',
+        worksheetRelsPath,
+    );
 
     const worksheetRelsFile =
         zip.file(
@@ -1344,27 +1266,49 @@ async function extractSheetImages(
             'text',
         );
 
-    /*
-    |--------------------------------------------------------------------------
-    | Find drawing relationship
-    |--------------------------------------------------------------------------
-    */
-
-    const relParser =
+    const parser =
         new DOMParser();
 
-    const relDocument =
-        relParser.parseFromString(
+    const worksheetRelDocument =
+        parser.parseFromString(
             worksheetRelsXml,
             'application/xml',
         );
 
     const relationships =
         Array.from(
-            relDocument.getElementsByTagName(
+            worksheetRelDocument.getElementsByTagName(
                 'Relationship',
             ),
         );
+
+    console.log(
+        'WORKSHEET RELATIONSHIPS:',
+        relationships.map(
+            (relationship) => ({
+                id:
+                    relationship.getAttribute(
+                        'Id',
+                    ),
+
+                type:
+                    relationship.getAttribute(
+                        'Type',
+                    ),
+
+                target:
+                    relationship.getAttribute(
+                        'Target',
+                    ),
+            }),
+        ),
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Find drawing
+    |--------------------------------------------------------------------------
+    */
 
     const drawingRelationship =
         relationships.find(
@@ -1374,15 +1318,17 @@ async function extractSheetImages(
                         'Type',
                     ) ?? '';
 
-                return type.includes(
-                    '/drawing',
+                return (
+                    type.includes(
+                        'drawing',
+                    )
                 );
             },
         );
 
     if (!drawingRelationship) {
         console.log(
-            `${sheetName}: no drawing relationship`,
+            `${sheetName}: DRAWING RELATIONSHIP NOT FOUND`,
         );
 
         return images;
@@ -1393,23 +1339,36 @@ async function extractSheetImages(
             'Target',
         );
 
+    console.log(
+        'DRAWING TARGET:',
+        drawingTarget,
+    );
+
     if (!drawingTarget) {
         return images;
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Resolve drawing path
+    | Resolve drawing
     |--------------------------------------------------------------------------
     */
 
+    const worksheetPath =
+        `xl/worksheets/sheet${
+            sheetIndex + 1
+        }.xml`;
+
     const drawingPath =
         resolveZipPath(
-            `xl/worksheets/sheet${
-                sheetIndex + 1
-            }.xml`,
+            worksheetPath,
             drawingTarget,
         );
+
+    console.log(
+        'DRAWING PATH:',
+        drawingPath,
+    );
 
     const drawingFile =
         zip.file(
@@ -1417,8 +1376,8 @@ async function extractSheetImages(
         );
 
     if (!drawingFile) {
-        console.warn(
-            `${sheetName}: drawing file not found`,
+        console.error(
+            'DRAWING FILE NOT FOUND:',
             drawingPath,
         );
 
@@ -1432,22 +1391,28 @@ async function extractSheetImages(
 
     /*
     |--------------------------------------------------------------------------
-    | Drawing relationships
+    | drawingN.xml.rels
     |--------------------------------------------------------------------------
     */
 
-    const drawingParts =
-        drawingPath.split('/');
-
     const drawingFileName =
-        drawingParts.pop() ??
-        '';
+        drawingPath
+            .split('/')
+            .pop() ?? '';
 
     const drawingDirectory =
-        drawingParts.join('/');
+        drawingPath
+            .split('/')
+            .slice(0, -1)
+            .join('/');
 
     const drawingRelsPath =
         `${drawingDirectory}/_rels/${drawingFileName}.rels`;
+
+    console.log(
+        'DRAWING RELS PATH:',
+        drawingRelsPath,
+    );
 
     const drawingRelsFile =
         zip.file(
@@ -1455,8 +1420,8 @@ async function extractSheetImages(
         );
 
     if (!drawingRelsFile) {
-        console.warn(
-            `${sheetName}: drawing relationships not found`,
+        console.error(
+            'DRAWING RELS NOT FOUND:',
             drawingRelsPath,
         );
 
@@ -1468,17 +1433,49 @@ async function extractSheetImages(
             'text',
         );
 
+    const drawingRelDocument =
+        parser.parseFromString(
+            drawingRelsXml,
+            'application/xml',
+        );
+
+    const drawingRelationships =
+        Array.from(
+            drawingRelDocument.getElementsByTagName(
+                'Relationship',
+            ),
+        );
+
+    console.log(
+        'DRAWING RELATIONSHIPS:',
+        drawingRelationships.map(
+            (relationship) => ({
+                id:
+                    relationship.getAttribute(
+                        'Id',
+                    ),
+
+                type:
+                    relationship.getAttribute(
+                        'Type',
+                    ),
+
+                target:
+                    relationship.getAttribute(
+                        'Target',
+                    ),
+            }),
+        ),
+    );
+
     /*
     |--------------------------------------------------------------------------
     | Parse drawing
     |--------------------------------------------------------------------------
     */
 
-    const drawingParser =
-        new DOMParser();
-
     const drawingDocument =
-        drawingParser.parseFromString(
+        parser.parseFromString(
             drawingXml,
             'application/xml',
         );
@@ -1496,6 +1493,17 @@ async function extractSheetImages(
         ),
     ];
 
+    console.log(
+        'DRAWING ANCHORS:',
+        anchors.length,
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | Extract every image
+    |--------------------------------------------------------------------------
+    */
+
     for (
         let index = 0;
         index < anchors.length;
@@ -1504,24 +1512,34 @@ async function extractSheetImages(
         const anchor =
             anchors[index];
 
-        /*
-        |--------------------------------------------------------------------------
-        | Find image relationship
-        |--------------------------------------------------------------------------
-        */
+        const picture =
+            getFirstChild(
+                anchor,
+                'pic',
+            );
 
-        const blip =
-            Array.from(
-                anchor.getElementsByTagName(
-                    'blip',
-                ),
-            )[0];
-
-        if (!blip) {
+        if (!picture) {
             continue;
         }
 
-        const embed =
+        const blip =
+            getFirstChild(
+                getFirstChild(
+                    picture,
+                    'blipFill',
+                ),
+                'blip',
+            );
+
+        if (!blip) {
+            console.log(
+                'IMAGE BLIP NOT FOUND',
+            );
+
+            continue;
+        }
+
+        const relationshipId =
             blip.getAttribute(
                 'r:embed',
             ) ??
@@ -1529,25 +1547,65 @@ async function extractSheetImages(
                 'embed',
             );
 
-        if (!embed) {
+        console.log(
+            'IMAGE RELATIONSHIP ID:',
+            relationshipId,
+        );
+
+        if (!relationshipId) {
             continue;
         }
 
-        const target =
-            getRelationshipTarget(
-                drawingRelsXml,
-                embed,
+        const imageRelationship =
+            drawingRelationships.find(
+                (relationship) =>
+                    relationship.getAttribute(
+                        'Id',
+                    ) ===
+                    relationshipId,
             );
 
-        if (!target) {
+        if (
+            !imageRelationship
+        ) {
+            console.error(
+                'IMAGE RELATIONSHIP NOT FOUND:',
+                relationshipId,
+            );
+
             continue;
         }
+
+        const imageTarget =
+            imageRelationship.getAttribute(
+                'Target',
+            );
+
+        console.log(
+            'IMAGE TARGET:',
+            imageTarget,
+        );
+
+        if (!imageTarget) {
+            continue;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Resolve image
+        |--------------------------------------------------------------------------
+        */
 
         const imagePath =
             resolveZipPath(
                 drawingPath,
-                target,
+                imageTarget,
             );
+
+        console.log(
+            'IMAGE PATH:',
+            imagePath,
+        );
 
         const imageFile =
             zip.file(
@@ -1555,8 +1613,8 @@ async function extractSheetImages(
             );
 
         if (!imageFile) {
-            console.warn(
-                `${sheetName}: image file not found`,
+            console.error(
+                'IMAGE FILE NOT FOUND:',
                 imagePath,
             );
 
@@ -1565,7 +1623,7 @@ async function extractSheetImages(
 
         /*
         |--------------------------------------------------------------------------
-        | Determine image MIME type
+        | MIME
         |--------------------------------------------------------------------------
         */
 
@@ -1579,8 +1637,10 @@ async function extractSheetImages(
             'image/png';
 
         if (
-            extension === 'jpg' ||
-            extension === 'jpeg'
+            extension ===
+                'jpg' ||
+            extension ===
+                'jpeg'
         ) {
             mimeType =
                 'image/jpeg';
@@ -1599,11 +1659,16 @@ async function extractSheetImages(
         ) {
             mimeType =
                 'image/svg+xml';
+        } else if (
+            extension === 'webp'
+        ) {
+            mimeType =
+                'image/webp';
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Convert binary image to data URL
+        | Base64
         |--------------------------------------------------------------------------
         */
 
@@ -1627,9 +1692,10 @@ async function extractSheetImages(
             );
 
         const image: ExcelImage = {
-            id: `${sheetName}-image-${
-                index + 1
-            }`,
+            id:
+                `${sheetName}-image-${
+                    index + 1
+                }`,
 
             src,
 
@@ -1652,17 +1718,36 @@ async function extractSheetImages(
                 position.offsetY,
         };
 
-        images.push(image);
+        images.push(
+            image,
+        );
 
         console.log(
-            `${sheetName}: IMAGE IMPORTED`,
-            image,
+            'IMAGE SUCCESSFULLY IMPORTED:',
+            {
+                id:
+                    image.id,
+
+                row:
+                    image.row,
+
+                column:
+                    image.column,
+
+                width:
+                    image.width,
+
+                height:
+                    image.height,
+
+                imageBytes:
+                    base64.length,
+            },
         );
     }
 
     console.log(
-        `${sheetName}: TOTAL IMAGES`,
-        images.length,
+        `========== ${sheetName}: TOTAL IMAGES ${images.length} ==========`,
     );
 
     return images;
@@ -1670,13 +1755,15 @@ async function extractSheetImages(
 
 /*
 |--------------------------------------------------------------------------
-| Main component
+| Component
 |--------------------------------------------------------------------------
 */
 
 export default function ImportExcel() {
     const [file, setFile] =
-        useState<File | null>(null);
+        useState<File | null>(
+            null,
+        );
 
     const [loading, setLoading] =
         useState(false);
@@ -1687,11 +1774,13 @@ export default function ImportExcel() {
         );
 
     const [error, setError] =
-        useState<string | null>(null);
+        useState<string | null>(
+            null,
+        );
 
     /*
     |--------------------------------------------------------------------------
-    | Import
+    | File import
     |--------------------------------------------------------------------------
     */
 
@@ -1715,45 +1804,50 @@ export default function ImportExcel() {
                 'Please select an Excel .xlsx file.',
             );
 
-            event.target.value = '';
-
             return;
         }
 
         setFile(selected);
-        setWorkbook(null);
-        setError(null);
         setLoading(true);
+        setError(null);
+        setWorkbook(null);
 
         try {
-            /*
-            |--------------------------------------------------------------------------
-            | Read file
-            |--------------------------------------------------------------------------
-            */
-
             const buffer =
                 await selected.arrayBuffer();
 
             /*
             |--------------------------------------------------------------------------
-            | SheetJS workbook
+            | XLSX
             |--------------------------------------------------------------------------
             */
 
             const sourceWorkbook =
-                XLSX.read(buffer, {
-                    type: 'array',
-                    cellStyles: true,
-                    cellNF: true,
-                    cellFormula: true,
-                    cellHTML: true,
-                    cellText: true,
-                });
+                XLSX.read(
+                    buffer,
+                    {
+                        type: 'array',
+
+                        cellStyles:
+                            true,
+
+                        cellNF:
+                            true,
+
+                        cellFormula:
+                            true,
+
+                        cellHTML:
+                            true,
+
+                        cellText:
+                            true,
+                    },
+                );
 
             /*
             |--------------------------------------------------------------------------
-            | JSZip
+            | ZIP
             |--------------------------------------------------------------------------
             */
 
@@ -1763,22 +1857,26 @@ export default function ImportExcel() {
                 );
 
             console.log(
-                '========== XLSX ZIP FILES =========='
+                '========== XLSX ZIP FILES ==========',
             );
 
-            Object.keys(zip.files).forEach(
+            Object.keys(
+                zip.files,
+            ).forEach(
                 (path) => {
-                    console.log(path);
+                    console.log(
+                        path,
+                    );
                 },
             );
 
             console.log(
-                '===================================='
+                '====================================',
             );
 
             /*
             |--------------------------------------------------------------------------
-            | styles.xml
+            | Styles
             |--------------------------------------------------------------------------
             */
 
@@ -1811,101 +1909,7 @@ export default function ImportExcel() {
 
             /*
             |--------------------------------------------------------------------------
-            | Convert raw worksheet XML
-            |--------------------------------------------------------------------------
-            */
-
-            const sheets: Promise<any>[] =
-                sourceWorkbook.SheetNames.map(
-                    (
-                        sheetName,
-                        sheetIndex,
-                    ) => {
-                        const worksheet =
-                            sourceWorkbook
-                                .Sheets[
-                                sheetName
-                            ];
-
-                        const worksheetPath =
-                            `xl/worksheets/sheet${
-                                sheetIndex + 1
-                            }.xml`;
-
-                        const worksheetFile =
-                            zip.file(
-                                worksheetPath,
-                            );
-
-                        let styleIndexes =
-                            new Map<
-                                string,
-                                number
-                            >();
-
-                        let rawDimensions =
-                            {
-                                rowHeights:
-                                    new Map<
-                                        number,
-                                        number
-                                    >(),
-
-                                columnWidths:
-                                    new Map<
-                                        number,
-                                        number
-                                    >(),
-                            };
-
-                        if (
-                            worksheetFile
-                        ) {
-                            return worksheetFile
-                                .async(
-                                    'text',
-                                )
-                                .then(
-                                    (
-                                        xml,
-                                    ) => {
-                                        styleIndexes =
-                                            parseWorksheetStyles(
-                                                xml,
-                                            );
-
-                                        rawDimensions =
-                                            parseWorksheetDimensions(
-                                                xml,
-                                            );
-
-                                        return {
-                                            xml,
-                                            styleIndexes,
-                                            rawDimensions,
-                                        };
-                                    },
-                                );
-                        }
-
-                        return Promise.resolve(
-                            {
-                                xml: '',
-                                styleIndexes,
-                                rawDimensions,
-                            },
-                        );
-                    },
-                );
-
-            const rawSheets =
-                await Promise.all(
-                    sheets,
-                );
-
-            /*
-            |--------------------------------------------------------------------------
-            | Build EDTS sheets
+            | Build sheets
             |--------------------------------------------------------------------------
             */
 
@@ -1915,7 +1919,8 @@ export default function ImportExcel() {
             for (
                 let sheetIndex = 0;
                 sheetIndex <
-                sourceWorkbook.SheetNames
+                sourceWorkbook
+                    .SheetNames
                     .length;
                 sheetIndex++
             ) {
@@ -1931,10 +1936,60 @@ export default function ImportExcel() {
                         sheetName
                     ];
 
-                const raw =
-                    rawSheets[
-                        sheetIndex
-                    ];
+                /*
+                |--------------------------------------------------------------------------
+                | Worksheet XML
+                |--------------------------------------------------------------------------
+                */
+
+                const worksheetPath =
+                    `xl/worksheets/sheet${
+                        sheetIndex + 1
+                    }.xml`;
+
+                const worksheetFile =
+                    zip.file(
+                        worksheetPath,
+                    );
+
+                let styleIndexes =
+                    new Map<
+                        string,
+                        number
+                    >();
+
+                let dimensions = {
+                    rowHeights:
+                        new Map<
+                            number,
+                            number
+                        >(),
+
+                    columnWidths:
+                        new Map<
+                            number,
+                            number
+                        >(),
+                };
+
+                if (
+                    worksheetFile
+                ) {
+                    const worksheetXml =
+                        await worksheetFile.async(
+                            'text',
+                        );
+
+                    styleIndexes =
+                        parseWorksheetStyles(
+                            worksheetXml,
+                        );
+
+                    dimensions =
+                        parseWorksheetDimensions(
+                            worksheetXml,
+                        );
+                }
 
                 /*
                 |--------------------------------------------------------------------------
@@ -2011,12 +2066,6 @@ export default function ImportExcel() {
                             ),
                     );
 
-                /*
-                |--------------------------------------------------------------------------
-                | Read cells
-                |--------------------------------------------------------------------------
-                */
-
                 for (
                     let row =
                         startRow;
@@ -2062,12 +2111,6 @@ export default function ImportExcel() {
                                         : '',
                             };
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Formula
-                        |--------------------------------------------------------------------------
-                        */
-
                         if (
                             sourceCell.f
                         ) {
@@ -2077,28 +2120,8 @@ export default function ImportExcel() {
                                 );
                         }
 
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Number format
-                        |--------------------------------------------------------------------------
-                        */
-
-                        if (
-                            typeof sourceCell.z ===
-                            'string'
-                        ) {
-                            cell.numberFormat =
-                                sourceCell.z;
-                        }
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Raw XML style index
-                        |--------------------------------------------------------------------------
-                        */
-
                         const styleIndex =
-                            raw.styleIndexes.get(
+                            styleIndexes.get(
                                 address,
                             ) ?? 0;
 
@@ -2112,12 +2135,6 @@ export default function ImportExcel() {
                             cell,
                             parsedStyle,
                         );
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Debug A1
-                        |--------------------------------------------------------------------------
-                        */
 
                         if (
                             address ===
@@ -2166,9 +2183,9 @@ export default function ImportExcel() {
                             index,
                         ) => {
                             const rawWidth =
-                                raw
-                                    .rawDimensions
-                                    .columnWidths.get(
+                                dimensions
+                                    .columnWidths
+                                    .get(
                                         index +
                                             1,
                                     );
@@ -2228,9 +2245,9 @@ export default function ImportExcel() {
                             index,
                         ) => {
                             const rawHeight =
-                                raw
-                                    .rawDimensions
-                                    .rowHeights.get(
+                                dimensions
+                                    .rowHeights
+                                    .get(
                                         index +
                                             1,
                                     );
@@ -2329,7 +2346,7 @@ export default function ImportExcel() {
 
                 /*
                 |--------------------------------------------------------------------------
-                | Images
+                | IMAGES
                 |--------------------------------------------------------------------------
                 */
 
@@ -2342,7 +2359,7 @@ export default function ImportExcel() {
 
                 /*
                 |--------------------------------------------------------------------------
-                | Build sheet
+                | Sheet
                 |--------------------------------------------------------------------------
                 */
 
@@ -2364,7 +2381,7 @@ export default function ImportExcel() {
 
             /*
             |--------------------------------------------------------------------------
-            | EDTS workbook
+            | Workbook
             |--------------------------------------------------------------------------
             */
 
@@ -2379,12 +2396,6 @@ export default function ImportExcel() {
 
                     activeSheet: 0,
                 };
-
-            /*
-            |--------------------------------------------------------------------------
-            | Debug
-            |--------------------------------------------------------------------------
-            */
 
             console.log(
                 'EDTS IMPORTED WORKBOOK:',
@@ -2404,17 +2415,12 @@ export default function ImportExcel() {
                     (sheet) => ({
                         sheet:
                             sheet.name,
+
                         images:
                             sheet.images,
                     }),
                 ),
             );
-
-            /*
-            |--------------------------------------------------------------------------
-            | Save state
-            |--------------------------------------------------------------------------
-            */
 
             setWorkbook(
                 edtsWorkbook,
@@ -2464,14 +2470,14 @@ export default function ImportExcel() {
             );
 
             setError(
-                'Unable to transfer the imported workbook to the editor.',
+                'Unable to transfer workbook to editor.',
             );
         }
     };
 
     /*
     |--------------------------------------------------------------------------
-    | Render
+    | UI
     |--------------------------------------------------------------------------
     */
 
@@ -2514,7 +2520,7 @@ export default function ImportExcel() {
                             into an editable template.
                         </p>
 
-                        <label className="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800">
+                        <label className="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-800">
 
                             {loading ? (
                                 <Loader2
@@ -2560,7 +2566,7 @@ export default function ImportExcel() {
                                             {file.name}
                                         </p>
 
-                                        <p className="mt-0.5 text-xs text-slate-500">
+                                        <p className="text-xs text-slate-500">
                                             {(
                                                 file.size /
                                                 1024
@@ -2578,7 +2584,7 @@ export default function ImportExcel() {
                                                 size={
                                                     20
                                                 }
-                                                className="shrink-0 text-green-600"
+                                                className="text-green-600"
                                             />
                                         )}
 
@@ -2640,7 +2646,7 @@ export default function ImportExcel() {
                                                             size={
                                                                 18
                                                             }
-                                                            className="shrink-0 text-green-600"
+                                                            className="text-green-600"
                                                         />
 
                                                         <span className="truncate text-sm font-semibold text-slate-800">
@@ -2719,7 +2725,7 @@ export default function ImportExcel() {
                                     onClick={
                                         openInEditor
                                     }
-                                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                                    className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
                                 >
                                     <Pencil
                                         size={17}
