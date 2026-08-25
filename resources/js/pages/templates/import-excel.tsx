@@ -15,11 +15,12 @@ import {
 
 import * as XLSX from 'xlsx';
 
-type SheetInfo = {
-    name: string;
-    rows: number;
-    columns: number;
-};
+import {
+    ExcelWorkbook,
+    ExcelSheet,
+    ExcelCell,
+    ExcelMerge,
+} from '@/types/excel';
 
 export default function ImportExcel() {
     const [file, setFile] =
@@ -28,17 +29,26 @@ export default function ImportExcel() {
     const [loading, setLoading] =
         useState(false);
 
-    const [sheets, setSheets] =
-        useState<SheetInfo[]>([]);
+    const [workbook, setWorkbook] =
+        useState<ExcelWorkbook | null>(
+            null,
+        );
 
     const [error, setError] =
         useState<string | null>(null);
+
+    /*
+    |--------------------------------------------------------------------------
+    | IMPORT EXCEL
+    |--------------------------------------------------------------------------
+    */
 
     const handleFileChange = async (
         event: ChangeEvent<HTMLInputElement>,
     ) => {
         const selected =
-            event.target.files?.[0] ?? null;
+            event.target.files?.[0] ??
+            null;
 
         if (!selected) {
             return;
@@ -49,7 +59,7 @@ export default function ImportExcel() {
                 .toLowerCase()
                 .endsWith('.xlsx')
         ) {
-            alert(
+            setError(
                 'Please select an Excel .xlsx file.',
             );
 
@@ -59,73 +69,478 @@ export default function ImportExcel() {
         }
 
         setFile(selected);
-        setSheets([]);
+        setWorkbook(null);
         setError(null);
         setLoading(true);
 
         try {
             /*
             |--------------------------------------------------------------------------
-            | Read Excel file
+            | Read file
             |--------------------------------------------------------------------------
             */
 
             const buffer =
                 await selected.arrayBuffer();
 
-            const workbook =
+            const sourceWorkbook =
                 XLSX.read(buffer, {
                     type: 'array',
+                    cellFormula: true,
+                    cellStyles: true,
                 });
 
             /*
             |--------------------------------------------------------------------------
-            | Read worksheet information
+            | Convert worksheets
             |--------------------------------------------------------------------------
             */
 
-            const sheetInformation: SheetInfo[] =
-                workbook.SheetNames.map(
+            const sheets: ExcelSheet[] =
+                sourceWorkbook.SheetNames.map(
                     (sheetName) => {
                         const worksheet =
-                            workbook.Sheets[
+                            sourceWorkbook
+                                .Sheets[
                                 sheetName
                             ];
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Determine worksheet range
+                        |--------------------------------------------------------------------------
+                        */
 
                         const range =
                             worksheet['!ref'];
 
-                        if (!range) {
-                            return {
-                                name: sheetName,
-                                rows: 0,
-                                columns: 0,
-                            };
+                        let startRow = 0;
+                        let startColumn = 0;
+                        let endRow = 0;
+                        let endColumn = 0;
+
+                        if (range) {
+                            const decoded =
+                                XLSX.utils.decode_range(
+                                    range,
+                                );
+
+                            startRow =
+                                decoded.s.r;
+
+                            startColumn =
+                                decoded.s.c;
+
+                            endRow =
+                                decoded.e.r;
+
+                            endColumn =
+                                decoded.e.c;
                         }
 
-                        const decoded =
-                            XLSX.utils.decode_range(
-                                range,
+                        const rowCount =
+                            Math.max(
+                                endRow -
+                                    startRow +
+                                    1,
+                                1,
                             );
+
+                        const columnCount =
+                            Math.max(
+                                endColumn -
+                                    startColumn +
+                                    1,
+                                1,
+                            );
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Cells
+                        |--------------------------------------------------------------------------
+                        */
+
+                        const cells: ExcelCell[][] =
+                            Array.from(
+                                {
+                                    length:
+                                        rowCount,
+                                },
+                                () =>
+                                    Array.from(
+                                        {
+                                            length:
+                                                columnCount,
+                                        },
+                                        () => ({
+                                            value: '',
+                                        }),
+                                    ),
+                            );
+
+                        for (
+                            let row =
+                                startRow;
+                            row <=
+                            endRow;
+                            row++
+                        ) {
+                            for (
+                                let column =
+                                    startColumn;
+                                column <=
+                                endColumn;
+                                column++
+                            ) {
+                                const address =
+                                    XLSX.utils.encode_cell(
+                                        {
+                                            r: row,
+                                            c: column,
+                                        },
+                                    );
+
+                                const sourceCell =
+                                    worksheet[
+                                        address
+                                    ];
+
+                                if (
+                                    !sourceCell
+                                ) {
+                                    continue;
+                                }
+
+                                const targetRow =
+                                    row -
+                                    startRow;
+
+                                const targetColumn =
+                                    column -
+                                    startColumn;
+
+                                let value =
+                                    '';
+
+                                if (
+                                    sourceCell.v !==
+                                    undefined &&
+                                    sourceCell.v !==
+                                        null
+                                ) {
+                                    value =
+                                        String(
+                                            sourceCell.v,
+                                        );
+                                }
+
+                                const cell: ExcelCell =
+                                    {
+                                        value,
+                                    };
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Formula
+                                |--------------------------------------------------------------------------
+                                */
+
+                                if (
+                                    sourceCell.f
+                                ) {
+                                    cell.formula =
+                                        sourceCell.f;
+                                }
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Basic formatting
+                                |--------------------------------------------------------------------------
+                                */
+
+                                if (
+                                    sourceCell.s
+                                ) {
+                                    const style =
+                                        sourceCell.s;
+
+                                    if (
+                                        style.font
+                                    ) {
+                                        if (
+                                            style
+                                                .font
+                                                .bold
+                                        ) {
+                                            cell.bold =
+                                                true;
+                                        }
+
+                                        if (
+                                            style
+                                                .font
+                                                .italic
+                                        ) {
+                                            cell.italic =
+                                                true;
+                                        }
+
+                                        if (
+                                            style
+                                                .font
+                                                .underline
+                                        ) {
+                                            cell.underline =
+                                                true;
+                                        }
+
+                                        if (
+                                            style
+                                                .font
+                                                .sz
+                                        ) {
+                                            cell.fontSize =
+                                                style
+                                                    .font
+                                                    .sz;
+                                        }
+
+                                        if (
+                                            style
+                                                .font
+                                                .name
+                                        ) {
+                                            cell.fontFamily =
+                                                style
+                                                    .font
+                                                    .name;
+                                        }
+                                    }
+                                }
+
+                                cells[
+                                    targetRow
+                                ][
+                                    targetColumn
+                                ] = cell;
+                            }
+                        }
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Column widths
+                        |--------------------------------------------------------------------------
+                        */
+
+                        const columnWidths =
+                            Array.from(
+                                {
+                                    length:
+                                        columnCount,
+                                },
+                                () => 100,
+                            );
+
+                        const columnInfo =
+                            worksheet[
+                                '!cols'
+                            ];
+
+                        if (
+                            Array.isArray(
+                                columnInfo,
+                            )
+                        ) {
+                            columnInfo.forEach(
+                                (
+                                    column,
+                                    index,
+                                ) => {
+                                    if (
+                                        index >=
+                                        columnCount
+                                    ) {
+                                        return;
+                                    }
+
+                                    if (
+                                        typeof column.wpx ===
+                                        'number'
+                                    ) {
+                                        columnWidths[
+                                            index
+                                        ] =
+                                            column.wpx;
+                                    } else if (
+                                        typeof column.wch ===
+                                        'number'
+                                    ) {
+                                        columnWidths[
+                                            index
+                                        ] =
+                                            column.wch *
+                                            7;
+                                    }
+                                },
+                            );
+                        }
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Row heights
+                        |--------------------------------------------------------------------------
+                        */
+
+                        const rowHeights =
+                            Array.from(
+                                {
+                                    length:
+                                        rowCount,
+                                },
+                                () => 28,
+                            );
+
+                        const rowInfo =
+                            worksheet[
+                                '!rows'
+                            ];
+
+                        if (
+                            Array.isArray(
+                                rowInfo,
+                            )
+                        ) {
+                            rowInfo.forEach(
+                                (
+                                    row,
+                                    index,
+                                ) => {
+                                    if (
+                                        index >=
+                                        rowCount
+                                    ) {
+                                        return;
+                                    }
+
+                                    if (
+                                        typeof row.hpx ===
+                                        'number'
+                                    ) {
+                                        rowHeights[
+                                            index
+                                        ] =
+                                            row.hpx;
+                                    } else if (
+                                        typeof row.hpt ===
+                                        'number'
+                                    ) {
+                                        rowHeights[
+                                            index
+                                        ] =
+                                            row.hpt *
+                                            1.333333;
+                                    }
+                                },
+                            );
+                        }
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Merged cells
+                        |--------------------------------------------------------------------------
+                        */
+
+                        const mergedCells: ExcelMerge[] =
+                            [];
+
+                        const merges =
+                            worksheet[
+                                '!merges'
+                            ];
+
+                        if (
+                            Array.isArray(
+                                merges,
+                            )
+                        ) {
+                            merges.forEach(
+                                (merge) => {
+                                    mergedCells.push(
+                                        {
+                                            startRow:
+                                                merge
+                                                    .s
+                                                    .r -
+                                                startRow,
+
+                                            startColumn:
+                                                merge
+                                                    .s
+                                                    .c -
+                                                startColumn,
+
+                                            endRow:
+                                                merge
+                                                    .e
+                                                    .r -
+                                                startRow,
+
+                                            endColumn:
+                                                merge
+                                                    .e
+                                                    .c -
+                                                startColumn,
+                                        },
+                                    );
+                                },
+                            );
+                        }
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Images
+                        |--------------------------------------------------------------------------
+                        |
+                        | XLSX image extraction will be handled
+                        | separately. For now we preserve the
+                        | image collection in our data model.
+                        |
+                        */
 
                         return {
                             name: sheetName,
 
-                            rows:
-                                decoded.e.r -
-                                decoded.s.r +
-                                1,
+                            cells,
 
-                            columns:
-                                decoded.e.c -
-                                decoded.s.c +
-                                1,
+                            columnWidths,
+
+                            rowHeights,
+
+                            mergedCells,
+
+                            images: [],
                         };
                     },
                 );
 
-            setSheets(
-                sheetInformation,
+            /*
+            |--------------------------------------------------------------------------
+            | EDTS Workbook
+            |--------------------------------------------------------------------------
+            */
+
+            const edtsWorkbook: ExcelWorkbook = {
+                version: 1,
+
+                type: 'spreadsheet',
+
+                sheets,
+
+                activeSheet: 0,
+            };
+
+            setWorkbook(
+                edtsWorkbook,
             );
         } catch (err) {
             console.error(
@@ -163,11 +578,11 @@ export default function ImportExcel() {
                 </div>
 
                 {/* ============================================================
-                    UPLOAD
+                    IMPORT CARD
                 ============================================================ */}
 
                 <div className="flex flex-1 items-center justify-center">
-                    <div className="w-full max-w-2xl rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
+                    <div className="w-full max-w-3xl rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm">
 
                         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl bg-green-50">
                             <FileSpreadsheet
@@ -181,14 +596,13 @@ export default function ImportExcel() {
                         </h2>
 
                         <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-                            Select an Excel .xlsx
-                            file containing the LGU
-                            document template you
-                            want to edit.
+                            Select an Excel workbook
+                            and EDTS will convert it
+                            into an editable template.
                         </p>
 
                         {/* ====================================================
-                            BUTTON
+                            SELECT BUTTON
                         ==================================================== */}
 
                         <label className="mt-6 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800">
@@ -219,11 +633,11 @@ export default function ImportExcel() {
                         </label>
 
                         {/* ====================================================
-                            SELECTED FILE
+                            FILE
                         ==================================================== */}
 
                         {file && (
-                            <div className="mx-auto mt-6 max-w-lg rounded-lg border border-slate-200 bg-slate-50 p-4 text-left">
+                            <div className="mx-auto mt-6 max-w-xl rounded-lg border border-slate-200 bg-slate-50 p-4 text-left">
                                 <div className="flex items-center gap-3">
                                     <FileSpreadsheet
                                         size={24}
@@ -264,28 +678,32 @@ export default function ImportExcel() {
                         ==================================================== */}
 
                         {error && (
-                            <div className="mx-auto mt-5 max-w-lg rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                            <div className="mx-auto mt-5 max-w-xl rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
                                 {error}
                             </div>
                         )}
 
                         {/* ====================================================
-                            WORKBOOK
+                            SHEETS
                         ==================================================== */}
 
-                        {sheets.length > 0 && (
-                            <div className="mx-auto mt-6 max-w-lg text-left">
+                        {workbook && (
+                            <div className="mx-auto mt-6 max-w-xl text-left">
                                 <div className="mb-3 flex items-center justify-between">
                                     <h3 className="text-sm font-semibold text-slate-900">
-                                        Workbook Sheets
+                                        Workbook Imported
                                     </h3>
 
                                     <span className="text-xs text-slate-500">
                                         {
-                                            sheets.length
+                                            workbook
+                                                .sheets
+                                                .length
                                         }{' '}
                                         sheet
-                                        {sheets.length !==
+                                        {workbook
+                                            .sheets
+                                            .length !==
                                         1
                                             ? 's'
                                             : ''}
@@ -293,7 +711,7 @@ export default function ImportExcel() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    {sheets.map(
+                                    {workbook.sheets.map(
                                         (
                                             sheet,
                                         ) => (
@@ -301,33 +719,77 @@ export default function ImportExcel() {
                                                 key={
                                                     sheet.name
                                                 }
-                                                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3"
+                                                className="rounded-lg border border-slate-200 bg-white p-4"
                                             >
-                                                <div className="flex min-w-0 items-center gap-3">
-                                                    <FileSpreadsheet
-                                                        size={
-                                                            18
-                                                        }
-                                                        className="shrink-0 text-green-600"
-                                                    />
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex min-w-0 items-center gap-3">
+                                                        <FileSpreadsheet
+                                                            size={
+                                                                18
+                                                            }
+                                                            className="shrink-0 text-green-600"
+                                                        />
 
-                                                    <span className="truncate text-sm font-medium text-slate-800">
+                                                        <span className="truncate text-sm font-semibold text-slate-800">
+                                                            {
+                                                                sheet.name
+                                                            }
+                                                        </span>
+                                                    </div>
+
+                                                    <span className="text-xs text-slate-500">
                                                         {
-                                                            sheet.name
-                                                        }
+                                                            sheet
+                                                                .cells
+                                                                .length
+                                                        }{' '}
+                                                        rows
                                                     </span>
                                                 </div>
 
-                                                <span className="ml-4 shrink-0 text-xs text-slate-500">
-                                                    {
-                                                        sheet.rows
-                                                    }{' '}
-                                                    rows ×{' '}
-                                                    {
-                                                        sheet.columns
-                                                    }{' '}
-                                                    columns
-                                                </span>
+                                                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                                                    <div className="rounded bg-slate-50 p-2">
+                                                        <div className="text-slate-400">
+                                                            Columns
+                                                        </div>
+
+                                                        <div className="font-semibold text-slate-700">
+                                                            {
+                                                                sheet
+                                                                    .columnWidths
+                                                                    .length
+                                                            }
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="rounded bg-slate-50 p-2">
+                                                        <div className="text-slate-400">
+                                                            Merged
+                                                        </div>
+
+                                                        <div className="font-semibold text-slate-700">
+                                                            {
+                                                                sheet
+                                                                    .mergedCells
+                                                                    .length
+                                                            }
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="rounded bg-slate-50 p-2">
+                                                        <div className="text-slate-400">
+                                                            Images
+                                                        </div>
+
+                                                        <div className="font-semibold text-slate-700">
+                                                            {
+                                                                sheet
+                                                                    .images
+                                                                    .length
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
                                         ),
                                     )}
