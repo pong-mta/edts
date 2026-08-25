@@ -9,6 +9,7 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
 import { FontSize } from '@/components/document-editor/extensions/font-size';
+import Heading from '@tiptap/extension-heading';
 import {
     Bold,
     Highlighter,
@@ -96,6 +97,10 @@ export default function WordEditor({
     const editor = useEditor({
         extensions: [
             StarterKit,
+
+            Heading.configure({
+                levels: [1, 2, 3, 4, 5, 6],
+            }),
 
             TextStyle,
             FontSize,
@@ -237,15 +242,23 @@ export default function WordEditor({
     |--------------------------------------------------------------------------
     */
 
-   const setFontSizeValue = (
-        value: string,
-    ) => {
+   const setFontSizeValue = (value: string) => {
+        const numericValue = Number(value);
+
+        if (
+            !Number.isFinite(numericValue) ||
+            numericValue < 5 ||
+            numericValue > 150
+        ) {
+            return;
+        }
+
         setFontSize(value);
 
         editor
             .chain()
             .focus()
-            .setFontSize(value)
+            .setFontSize(`${numericValue}pt`)
             .run();
     };
 
@@ -409,6 +422,62 @@ export default function WordEditor({
                         </span>
 
                     </div>
+
+                    <select
+                        defaultValue="paragraph"
+                        onChange={(event) => {
+                            const value = event.target.value;
+
+                            if (value === 'paragraph') {
+                                editor
+                                    .chain()
+                                    .focus()
+                                    .setParagraph()
+                                    .run();
+
+                                return;
+                            }
+
+                            editor
+                                .chain()
+                                .focus()
+                                .toggleHeading({
+                                    level: Number(value) as
+                                        1 | 2 | 3 | 4 | 5 | 6,
+                                })
+                                .run();
+                        }}
+                        className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500"
+                        title="Paragraph style"
+                    >
+                        <option value="paragraph">
+                            Normal
+                        </option>
+
+                        <option value="1">
+                            Heading 1
+                        </option>
+
+                        <option value="2">
+                            Heading 2
+                        </option>
+
+                        <option value="3">
+                            Heading 3
+                        </option>
+
+                        <option value="4">
+                            Heading 4
+                        </option>
+
+                        <option value="5">
+                            Heading 5
+                        </option>
+
+                        <option value="6">
+                            Heading 6
+                        </option>
+                    </select>
 
                     <ToolbarDivider />
 
