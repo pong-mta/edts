@@ -168,14 +168,15 @@ export default function ExcelEditor({
                                                         ? 'ring-2 ring-blue-500 ring-inset'
                                                         : ''
                                                 }`}
-                                                onClick={() =>
-                                                    setSelectedCell(
-                                                        {
-                                                            row,
-                                                            col,
-                                                        },
-                                                    )
-                                                }
+                                                onClick={() => {
+                                                    setSelectedCell({
+                                                        row,
+                                                        col,
+                                                    });
+                                                }}
+                                                onDoubleClick={() => {
+                                                    inputRef.current?.focus();
+                                                }}
                                             >
                                                 {active ? (
                                                     <input
