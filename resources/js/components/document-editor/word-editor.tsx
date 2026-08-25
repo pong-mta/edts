@@ -105,6 +105,13 @@ export default function WordEditor({
         cols: 0,
     });
 
+    const [resizingRow, setResizingRow] =
+    useState<{
+        row: HTMLTableRowElement;
+        startY: number;
+        startHeight: number;
+    } | null>(null);
+
     
 
     const editor = useEditor({
@@ -205,6 +212,20 @@ export default function WordEditor({
         }
     };
 
+    const startRowResize = (
+        event: MouseEvent,
+        row: HTMLTableRowElement,
+    ) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        setResizingRow({
+            row,
+            startY: event.clientY,
+            startHeight: row.getBoundingClientRect().height,
+        });
+    };
+
     useEffect(() => {
         if (!editor) {
             return;
@@ -227,6 +248,119 @@ export default function WordEditor({
             editor.off(
                 'selectionUpdate',
                 handleSelectionUpdate,
+            );
+        };
+    }, [editor]);
+
+    useEffect(() => {
+        if (!resizingRow) {
+            return;
+        }
+
+        const handleMouseMove = (
+            event: MouseEvent,
+        ) => {
+            const delta =
+                event.clientY -
+                resizingRow.startY;
+
+            const newHeight = Math.max(
+                24,
+                resizingRow.startHeight + delta,
+            );
+
+            resizingRow.row.style.height =
+                `${newHeight}px`;
+        };
+
+        const handleMouseUp = () => {
+            setResizingRow(null);
+        };
+
+        document.addEventListener(
+            'mousemove',
+            handleMouseMove,
+        );
+
+        document.addEventListener(
+            'mouseup',
+            handleMouseUp,
+        );
+
+        return () => {
+            document.removeEventListener(
+                'mousemove',
+                handleMouseMove,
+            );
+
+            document.removeEventListener(
+                'mouseup',
+                handleMouseUp,
+            );
+        };
+    }, [resizingRow]);
+
+
+    useEffect(() => {
+        if (!editor) {
+            return;
+        }
+
+        const addRowResizeHandles = () => {
+            const rows =
+                editor.view.dom.querySelectorAll(
+                    'table tr',
+                );
+
+            rows.forEach((row) => {
+                const tableRow =
+                    row as HTMLTableRowElement;
+
+                if (
+                    tableRow.querySelector(
+                        '.row-resize-handle',
+                    )
+                ) {
+                    return;
+                }
+
+                const handle =
+                    document.createElement('div');
+
+                handle.className =
+                    'row-resize-handle';
+
+                handle.addEventListener(
+                    'mousedown',
+                    (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+
+                        startRowResize(
+                            event,
+                            tableRow,
+                        );
+                    },
+                );
+
+                tableRow.style.position =
+                    'relative';
+
+                tableRow.appendChild(handle);
+            });
+        };
+
+        addRowResizeHandles();
+
+        editor.on(
+            'update',
+            addRowResizeHandles,
+        );
+
+        return () => {
+            editor.off(
+                'update',
+                addRowResizeHandles,
             );
         };
     }, [editor]);
