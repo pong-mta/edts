@@ -356,3 +356,14 @@
 .word-document.resize-cursor {
     cursor: col-resize;
 }
+
+/* ============================================================
+   eDTS TABLE ROW HEIGHT
+   ============================================================ */
+
+.word-document td,
+.word-document th {
+    min-height: 24px;
+    height: 24px;
+    vertical-align: top;
+}
