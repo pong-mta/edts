@@ -6,9 +6,11 @@ import {
     LoaderCircle,
     ShieldCheck,
 } from 'lucide-react';
-import { FormEventHandler, useState } from 'react';
+import {
+    FormEventHandler,
+    useState,
+} from 'react';
 
-import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,27 +30,58 @@ export default function ResetPassword() {
         setProcessing(true);
         setError('');
 
-        const userId =
-            sessionStorage.getItem('reset_user_id');
-
-        const phone =
-            sessionStorage.getItem('reset_phone');
-
         const resetToken =
             sessionStorage.getItem('reset_token');
 
+        if (!resetToken) {
+            setError(
+                'Your password reset session has expired. Please request a new verification code.',
+            );
+
+            setProcessing(false);
+
+            return;
+        }
+
+        if (password.length < 8) {
+            setError(
+                'Password must be at least 8 characters.',
+            );
+
+            setProcessing(false);
+
+            return;
+        }
+
+        if (
+            password !==
+            passwordConfirmation
+        ) {
+            setError(
+                'Password confirmation does not match.',
+            );
+
+            setProcessing(false);
+
+            return;
+        }
+
         try {
-            const response = await axios.post(
+            await axios.post(
                 '/api/forgot-password/reset',
                 {
-                    user_id: Number(userId),
-                    phone,
-                    token: resetToken,
+                    reset_token: resetToken,
                     password,
                     password_confirmation:
                         passwordConfirmation,
                 },
             );
+
+            /*
+            |--------------------------------------------------------------------------
+            | CLEAR RESET SESSION
+            |--------------------------------------------------------------------------
+            */
 
             sessionStorage.removeItem(
                 'reset_user_id',
@@ -62,30 +95,47 @@ export default function ResetPassword() {
                 'reset_token',
             );
 
+            /*
+            |--------------------------------------------------------------------------
+            | LOGIN
+            |--------------------------------------------------------------------------
+            */
+
             window.location.href =
                 '/login?reset=success';
 
         } catch (error: any) {
             if (
-                axios.isAxiosError(error) &&
-                error.response?.status === 422
+                axios.isAxiosError(error)
             ) {
-                const errors =
-                    error.response.data.errors;
+                const response =
+                    error.response;
+
+                if (
+                    response?.status === 422
+                ) {
+                    setError(
+                        response.data?.errors
+                            ?.password?.[0] ||
+                        response.data?.errors
+                            ?.password_confirmation?.[0] ||
+                        response.data?.message ||
+                        'Unable to reset your password.',
+                    );
+
+                    return;
+                }
 
                 setError(
-                    errors?.password?.[0] ||
-                        errors?.password_confirmation?.[0] ||
-                        error.response.data.message ||
-                        'Please check your password.',
+                    response?.data?.message ||
+                        'Unable to reset your password.',
                 );
 
                 return;
             }
 
             setError(
-                error.response?.data?.message ||
-                    'Unable to reset your password.',
+                'Unable to reset your password. Please try again.',
             );
         } finally {
             setProcessing(false);
@@ -98,7 +148,9 @@ export default function ResetPassword() {
 
             <div className="h-screen overflow-hidden bg-slate-100">
 
+                {/* ================================================== */}
                 {/* HEADER */}
+                {/* ================================================== */}
 
                 <header className="h-[72px] bg-[#0b1f3a] text-white">
                     <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-5">
@@ -126,6 +178,7 @@ export default function ResetPassword() {
                                     Province of Iloilo
                                 </p>
                             </div>
+
                         </div>
 
                         <div className="hidden text-right sm:block">
@@ -137,16 +190,21 @@ export default function ResetPassword() {
                                 Electronic Document Tracking System
                             </p>
                         </div>
+
                     </div>
                 </header>
 
+                {/* ================================================== */}
                 {/* MAIN */}
+                {/* ================================================== */}
 
                 <main className="flex h-[calc(100vh-72px)] items-center justify-center px-4">
 
                     <div className="grid w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl lg:grid-cols-[1.1fr_0.9fr]">
 
-                        {/* LEFT */}
+                        {/* ================================================== */}
+                        {/* LEFT PANEL */}
+                        {/* ================================================== */}
 
                         <section className="relative hidden overflow-hidden bg-gradient-to-br from-[#0b1f3a] via-[#123b69] to-[#0b5cab] p-10 text-white lg:flex lg:flex-col lg:justify-between">
 
@@ -198,6 +256,7 @@ export default function ResetPassword() {
                                     </div>
 
                                 </div>
+
                             </div>
 
                             <div className="relative">
@@ -212,7 +271,9 @@ export default function ResetPassword() {
 
                         </section>
 
-                        {/* RIGHT */}
+                        {/* ================================================== */}
+                        {/* RIGHT PANEL */}
+                        {/* ================================================== */}
 
                         <section className="flex items-center p-6 sm:p-8 lg:p-10">
 
@@ -266,11 +327,15 @@ export default function ResetPassword() {
 
                                 </div>
 
+                                {/* ERROR */}
+
                                 {error && (
                                     <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
                                         {error}
                                     </div>
                                 )}
+
+                                {/* FORM */}
 
                                 <form
                                     onSubmit={submit}
@@ -302,12 +367,12 @@ export default function ResetPassword() {
                                             }
                                             disabled={processing}
                                             placeholder="Enter new password"
-                                            className="h-11 rounded-xl border-slate-200 bg-slate-50 px-4 text-sm focus:bg-white"
+                                            className="h-11 rounded-xl border-slate-200 bg-slate-50 px-4 text-sm transition focus:bg-white"
                                         />
 
                                     </div>
 
-                                    {/* CONFIRM */}
+                                    {/* CONFIRM PASSWORD */}
 
                                     <div>
 
@@ -333,7 +398,7 @@ export default function ResetPassword() {
                                             }
                                             disabled={processing}
                                             placeholder="Confirm new password"
-                                            className="h-11 rounded-xl border-slate-200 bg-slate-50 px-4 text-sm focus:bg-white"
+                                            className="h-11 rounded-xl border-slate-200 bg-slate-50 px-4 text-sm transition focus:bg-white"
                                         />
 
                                     </div>
@@ -360,7 +425,7 @@ export default function ResetPassword() {
 
                                     </div>
 
-                                    {/* SUBMIT */}
+                                    {/* BUTTON */}
 
                                     <Button
                                         type="submit"
@@ -379,7 +444,9 @@ export default function ResetPassword() {
                                                 Updating password...
                                             </>
                                         ) : (
-                                            'Set New Password'
+                                            <>
+                                                Set New Password
+                                            </>
                                         )}
 
                                     </Button>
@@ -416,8 +483,11 @@ export default function ResetPassword() {
                                 </div>
 
                             </div>
+
                         </section>
+
                     </div>
+
                 </main>
             </div>
         </>
