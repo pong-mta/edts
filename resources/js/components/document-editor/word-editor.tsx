@@ -9,6 +9,10 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import Highlight from '@tiptap/extension-highlight';
 import { FontSize } from '@/components/document-editor/extensions/font-size';
+import { Table } from '@tiptap/extension-table';
+import TableRow from '@tiptap/extension-table-row';
+import TableCell from '@tiptap/extension-table-cell';
+import TableHeader from '@tiptap/extension-table-header';
 
 import {
     Bold,
@@ -98,7 +102,13 @@ export default function WordEditor({
         extensions: [
             StarterKit,
 
+            Table.configure({
+                resizable: true,
+            }),
 
+            TableRow,
+            TableHeader,
+            TableCell,
 
             TextStyle,
             FontSize,
@@ -715,6 +725,29 @@ export default function WordEditor({
                 {/* ====================================================== */}
 
                 <div className="flex flex-wrap items-center gap-1 bg-white p-2">
+
+                    {/* Insert table */}
+
+                    <ToolbarButton
+                        title="Insert table"
+                        onClick={() => {
+                            editor
+                                .chain()
+                                .focus()
+                                .insertTable({
+                                    rows: 3,
+                                    cols: 3,
+                                    withHeaderRow: true,
+                                })
+                                .run();
+                        }}
+                    >
+                        <span className="text-xs font-bold">
+                            ▦
+                        </span>
+                    </ToolbarButton>
+
+                    <ToolbarDivider />
 
                     {/* Bullet list */}
 
