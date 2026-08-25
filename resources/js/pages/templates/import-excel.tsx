@@ -334,6 +334,14 @@ export default function ImportExcel() {
                                     worksheet[
                                         address
                                     ];
+                                if (
+                                        address === 'A1'
+                                    ) {
+                                        console.log(
+                                            'A1 SOURCE CELL:',
+                                            sourceCell,
+                                        );
+                                    }
 
                                 if (
                                     !sourceCell
