@@ -61,6 +61,32 @@ export const TableHeaderAlignment =
                         };
                     },
                 },
+
+                borderColor: {
+                    default: null,
+
+                    parseHTML: (element) => {
+                        return (
+                            element.getAttribute(
+                                'data-border-color',
+                            ) || null
+                        );
+                    },
+
+                    renderHTML: (attributes) => {
+                        if (!attributes.borderColor) {
+                            return {};
+                        }
+
+                        return {
+                            'data-border-color':
+                                attributes.borderColor,
+
+                            style:
+                                `border: 1px solid ${attributes.borderColor};`,
+                        };
+                    },
+                },
             };
         },
     });

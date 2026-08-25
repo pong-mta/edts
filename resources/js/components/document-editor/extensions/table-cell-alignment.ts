@@ -82,7 +82,7 @@ export const TableCellAlignment = TableCell.extend({
                             attributes.borderColor,
 
                         style:
-                            `border-color: ${attributes.borderColor};`,
+                            `border: 1px solid ${attributes.borderColor};`,
                     };
                 },
             },
