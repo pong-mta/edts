@@ -111,6 +111,11 @@ export default function WordEditor({
 
     const [rowHeight, setRowHeight] =
     useState('24');
+    const [borderWidth, setBorderWidth] =
+        useState('1');
+
+    const [borderStyle, setBorderStyle] =
+        useState('solid');
 
     const [showCellColorPicker, setShowCellColorPicker] =
     useState(false);
@@ -188,7 +193,7 @@ export default function WordEditor({
                         borderWidth: value,
                     },
                 );
-
+                setBorderWidth(String(value ?? 1));
                 editor.view.dispatch(tr);
 
                 return;
@@ -227,7 +232,7 @@ export default function WordEditor({
                         borderStyle: value,
                     },
                 );
-
+                setBorderStyle(value ?? 'solid');
                 editor.view.dispatch(tr);
 
                 return;
@@ -495,6 +500,28 @@ export default function WordEditor({
             syncFontSize();
             syncFontFamily();
             syncRowHeight();
+
+            const cellAttributes =
+                editor.getAttributes('tableCell');
+
+            const headerAttributes =
+                editor.getAttributes('tableHeader');
+
+            const attributes =
+                Object.keys(cellAttributes).length
+                    ? cellAttributes
+                    : headerAttributes;
+
+            setBorderWidth(
+                attributes.borderWidth
+                    ? String(attributes.borderWidth)
+                    : '1',
+            );
+
+            setBorderStyle(
+                attributes.borderStyle ||
+                    'solid',
+            );
         };
         editor.on(
             'selectionUpdate',
@@ -1376,7 +1403,7 @@ export default function WordEditor({
                                     min="1"
                                     max="10"
                                     step="1"
-                                    defaultValue="1"
+                                    value={borderWidth}
                                     onKeyDown={(event) => {
                                         if (event.key !== 'Enter') {
                                             return;
@@ -1408,7 +1435,7 @@ export default function WordEditor({
                             </div>
 
                             <select
-                                defaultValue="solid"
+                               value={borderStyle}
                                 onChange={(event) => {
                                     setCellBorderStyle(
                                         event.target.value,
