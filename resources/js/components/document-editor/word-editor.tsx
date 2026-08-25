@@ -4,31 +4,91 @@ import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
+import FontFamily from '@tiptap/extension-font-family';
+import { TextStyle } from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
+import Highlight from '@tiptap/extension-highlight';
 import {
     Bold,
+    Highlighter,
     Italic,
     Link as LinkIcon,
     List,
     ListOrdered,
     Redo2,
     Strikethrough,
+    Type,
     Underline as UnderlineIcon,
     Undo2,
 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface WordEditorProps {
     content: string;
     onChange: (content: string) => void;
 }
 
+const FONT_FAMILIES = [
+    {
+        label: 'Arial',
+        value: 'Arial',
+    },
+    {
+        label: 'Calibri',
+        value: 'Calibri',
+    },
+    {
+        label: 'Times New Roman',
+        value: 'Times New Roman',
+    },
+    {
+        label: 'Georgia',
+        value: 'Georgia',
+    },
+    {
+        label: 'Verdana',
+        value: 'Verdana',
+    },
+];
+
+const FONT_SIZES = [
+    '10px',
+    '11px',
+    '12px',
+    '14px',
+    '16px',
+    '18px',
+    '20px',
+    '24px',
+    '28px',
+    '32px',
+    '36px',
+    '48px',
+];
+
 export default function WordEditor({
     content,
     onChange,
 }: WordEditorProps) {
+    const [fontSize, setFontSize] = useState('16px');
+
     const editor = useEditor({
         extensions: [
             StarterKit,
+
+            TextStyle,
+
+            FontFamily.configure({
+                types: ['textStyle'],
+            }),
+
+            Color.configure({
+                types: ['textStyle'],
+            }),
+
+            Highlight.configure({
+                multicolor: true,
+            }),
 
             Underline,
 
@@ -50,7 +110,7 @@ export default function WordEditor({
         editorProps: {
             attributes: {
                 class:
-                    'prose prose-slate max-w-none min-h-[900px] outline-none',
+                    'prose prose-slate max-w-none min-h-[960px] outline-none',
             },
         },
 
@@ -85,6 +145,12 @@ export default function WordEditor({
         return null;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | LINK
+    |--------------------------------------------------------------------------
+    */
+
     const setLink = () => {
         const previousUrl =
             editor.getAttributes('link').href;
@@ -117,6 +183,86 @@ export default function WordEditor({
             .run();
     };
 
+    /*
+    |--------------------------------------------------------------------------
+    | FONT FAMILY
+    |--------------------------------------------------------------------------
+    */
+
+    const setFontFamily = (
+        value: string,
+    ) => {
+        if (value === 'default') {
+            editor
+                .chain()
+                .focus()
+                .unsetFontFamily()
+                .run();
+
+            return;
+        }
+
+        editor
+            .chain()
+            .focus()
+            .setFontFamily(value)
+            .run();
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | FONT SIZE
+    |--------------------------------------------------------------------------
+    */
+
+    const setFontSizeValue = (
+        value: string,
+    ) => {
+        setFontSize(value);
+
+        editor
+            .chain()
+            .focus()
+            .setMark('textStyle', {
+                fontSize: value,
+            })
+            .run();
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | TEXT COLOR
+    |--------------------------------------------------------------------------
+    */
+
+    const setTextColor = (
+        value: string,
+    ) => {
+        editor
+            .chain()
+            .focus()
+            .setColor(value)
+            .run();
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | HIGHLIGHT
+    |--------------------------------------------------------------------------
+    */
+
+    const setHighlight = (
+        value: string,
+    ) => {
+        editor
+            .chain()
+            .focus()
+            .toggleHighlight({
+                color: value,
+            })
+            .run();
+    };
+
     return (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
 
@@ -124,207 +270,372 @@ export default function WordEditor({
             {/* TOOLBAR */}
             {/* ========================================================== */}
 
-            <div className="sticky top-0 z-10 flex flex-wrap items-center gap-1 border-b border-slate-200 bg-slate-50 p-2">
+            <div className="sticky top-0 z-10 border-b border-slate-200 bg-white">
 
-                <ToolbarButton
-                    title="Undo"
-                    onClick={() =>
-                        editor
-                            .chain()
-                            .focus()
-                            .undo()
-                            .run()
-                    }
-                    disabled={
-                        !editor.can()
-                            .chain()
-                            .focus()
-                            .undo()
-                            .run()
-                    }
-                >
-                    <Undo2 className="h-4 w-4" />
-                </ToolbarButton>
+                {/* ====================================================== */}
+                {/* ROW 1 */}
+                {/* ====================================================== */}
 
-                <ToolbarButton
-                    title="Redo"
-                    onClick={() =>
-                        editor
-                            .chain()
-                            .focus()
-                            .redo()
-                            .run()
-                    }
-                    disabled={
-                        !editor.can()
-                            .chain()
-                            .focus()
-                            .redo()
-                            .run()
-                    }
-                >
-                    <Redo2 className="h-4 w-4" />
-                </ToolbarButton>
+                <div className="flex flex-wrap items-center gap-1 border-b border-slate-100 bg-slate-50 p-2">
 
-                <ToolbarDivider />
+                    {/* Undo */}
 
-                <ToolbarButton
-                    title="Bold"
-                    active={editor.isActive('bold')}
-                    onClick={() =>
-                        editor
-                            .chain()
-                            .focus()
-                            .toggleBold()
-                            .run()
-                    }
-                >
-                    <Bold className="h-4 w-4" />
-                </ToolbarButton>
+                    <ToolbarButton
+                        title="Undo"
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .undo()
+                                .run()
+                        }
+                        disabled={
+                            !editor
+                                .can()
+                                .chain()
+                                .focus()
+                                .undo()
+                                .run()
+                        }
+                    >
+                        <Undo2 className="h-4 w-4" />
+                    </ToolbarButton>
 
-                <ToolbarButton
-                    title="Italic"
-                    active={editor.isActive('italic')}
-                    onClick={() =>
-                        editor
-                            .chain()
-                            .focus()
-                            .toggleItalic()
-                            .run()
-                    }
-                >
-                    <Italic className="h-4 w-4" />
-                </ToolbarButton>
+                    {/* Redo */}
 
-                <ToolbarButton
-                    title="Underline"
-                    active={editor.isActive('underline')}
-                    onClick={() =>
-                        editor
-                            .chain()
-                            .focus()
-                            .toggleUnderline()
-                            .run()
-                    }
-                >
-                    <UnderlineIcon className="h-4 w-4" />
-                </ToolbarButton>
+                    <ToolbarButton
+                        title="Redo"
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .redo()
+                                .run()
+                        }
+                        disabled={
+                            !editor
+                                .can()
+                                .chain()
+                                .focus()
+                                .redo()
+                                .run()
+                        }
+                    >
+                        <Redo2 className="h-4 w-4" />
+                    </ToolbarButton>
 
-                <ToolbarButton
-                    title="Strikethrough"
-                    active={editor.isActive(
-                        'strike',
-                    )}
-                    onClick={() =>
-                        editor
-                            .chain()
-                            .focus()
-                            .toggleStrike()
-                            .run()
-                    }
-                >
-                    <Strikethrough className="h-4 w-4" />
-                </ToolbarButton>
+                    <ToolbarDivider />
 
-                <ToolbarDivider />
+                    {/* Font */}
 
-                <ToolbarButton
-                    title="Bullet list"
-                    active={editor.isActive(
-                        'bulletList',
-                    )}
-                    onClick={() =>
-                        editor
-                            .chain()
-                            .focus()
-                            .toggleBulletList()
-                            .run()
-                    }
-                >
-                    <List className="h-4 w-4" />
-                </ToolbarButton>
+                    <div className="flex items-center gap-1">
 
-                <ToolbarButton
-                    title="Numbered list"
-                    active={editor.isActive(
-                        'orderedList',
-                    )}
-                    onClick={() =>
-                        editor
-                            .chain()
-                            .focus()
-                            .toggleOrderedList()
-                            .run()
-                    }
-                >
-                    <ListOrdered className="h-4 w-4" />
-                </ToolbarButton>
+                        <Type className="ml-1 h-4 w-4 text-slate-500" />
 
-                <ToolbarDivider />
+                        <select
+                            defaultValue="default"
+                            onChange={(event) =>
+                                setFontFamily(
+                                    event.target.value,
+                                )
+                            }
+                            className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500"
+                        >
+                            <option value="default">
+                                Font
+                            </option>
 
-                <ToolbarButton
-                    title="Align left"
-                    active={editor.isActive({
-                        textAlign: 'left',
-                    })}
-                    onClick={() =>
-                        editor
-                            .chain()
-                            .focus()
-                            .setTextAlign('left')
-                            .run()
-                    }
-                >
-                    <span className="text-xs font-bold">
-                        L
-                    </span>
-                </ToolbarButton>
+                            {FONT_FAMILIES.map(
+                                (font) => (
+                                    <option
+                                        key={
+                                            font.value
+                                        }
+                                        value={
+                                            font.value
+                                        }
+                                    >
+                                        {font.label}
+                                    </option>
+                                ),
+                            )}
+                        </select>
 
-                <ToolbarButton
-                    title="Align center"
-                    active={editor.isActive({
-                        textAlign: 'center',
-                    })}
-                    onClick={() =>
-                        editor
-                            .chain()
-                            .focus()
-                            .setTextAlign('center')
-                            .run()
-                    }
-                >
-                    <span className="text-xs font-bold">
-                        C
-                    </span>
-                </ToolbarButton>
+                    </div>
 
-                <ToolbarButton
-                    title="Align right"
-                    active={editor.isActive({
-                        textAlign: 'right',
-                    })}
-                    onClick={() =>
-                        editor
-                            .chain()
-                            .focus()
-                            .setTextAlign('right')
-                            .run()
-                    }
-                >
-                    <span className="text-xs font-bold">
-                        R
-                    </span>
-                </ToolbarButton>
+                    {/* Font size */}
 
-                <ToolbarDivider />
+                    <select
+                        value={fontSize}
+                        onChange={(event) =>
+                            setFontSizeValue(
+                                event.target.value,
+                            )
+                        }
+                        className="h-8 w-[72px] rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500"
+                    >
+                        {FONT_SIZES.map(
+                            (size) => (
+                                <option
+                                    key={size}
+                                    value={size}
+                                >
+                                    {size.replace(
+                                        'px',
+                                        '',
+                                    )}
+                                </option>
+                            ),
+                        )}
+                    </select>
 
-                <ToolbarButton
-                    title="Insert link"
-                    active={editor.isActive('link')}
-                    onClick={setLink}
-                >
-                    <LinkIcon className="h-4 w-4" />
-                </ToolbarButton>
+                    <ToolbarDivider />
+
+                    {/* Bold */}
+
+                    <ToolbarButton
+                        title="Bold"
+                        active={editor.isActive(
+                            'bold',
+                        )}
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .toggleBold()
+                                .run()
+                        }
+                    >
+                        <Bold className="h-4 w-4" />
+                    </ToolbarButton>
+
+                    {/* Italic */}
+
+                    <ToolbarButton
+                        title="Italic"
+                        active={editor.isActive(
+                            'italic',
+                        )}
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .toggleItalic()
+                                .run()
+                        }
+                    >
+                        <Italic className="h-4 w-4" />
+                    </ToolbarButton>
+
+                    {/* Underline */}
+
+                    <ToolbarButton
+                        title="Underline"
+                        active={editor.isActive(
+                            'underline',
+                        )}
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .toggleUnderline()
+                                .run()
+                        }
+                    >
+                        <UnderlineIcon className="h-4 w-4" />
+                    </ToolbarButton>
+
+                    {/* Strike */}
+
+                    <ToolbarButton
+                        title="Strikethrough"
+                        active={editor.isActive(
+                            'strike',
+                        )}
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .toggleStrike()
+                                .run()
+                        }
+                    >
+                        <Strikethrough className="h-4 w-4" />
+                    </ToolbarButton>
+
+                    <ToolbarDivider />
+
+                    {/* Text color */}
+
+                    <label
+                        title="Text color"
+                        className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-slate-600 transition hover:bg-slate-200"
+                    >
+                        <span className="text-sm font-bold">
+                            A
+                        </span>
+
+                        <span className="absolute bottom-1 left-1/2 h-1 w-4 -translate-x-1/2 rounded-full bg-red-500" />
+
+                        <input
+                            type="color"
+                            defaultValue="#000000"
+                            onChange={(event) =>
+                                setTextColor(
+                                    event.target.value,
+                                )
+                            }
+                            className="absolute inset-0 cursor-pointer opacity-0"
+                        />
+                    </label>
+
+                    {/* Highlight */}
+
+                    <label
+                        title="Highlight"
+                        className="relative flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-slate-600 transition hover:bg-slate-200"
+                    >
+                        <Highlighter className="h-4 w-4" />
+
+                        <input
+                            type="color"
+                            defaultValue="#fff59d"
+                            onChange={(event) =>
+                                setHighlight(
+                                    event.target.value,
+                                )
+                            }
+                            className="absolute inset-0 cursor-pointer opacity-0"
+                        />
+                    </label>
+
+                </div>
+
+                {/* ====================================================== */}
+                {/* ROW 2 */}
+                {/* ====================================================== */}
+
+                <div className="flex flex-wrap items-center gap-1 bg-white p-2">
+
+                    {/* Bullet list */}
+
+                    <ToolbarButton
+                        title="Bullet list"
+                        active={editor.isActive(
+                            'bulletList',
+                        )}
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .toggleBulletList()
+                                .run()
+                        }
+                    >
+                        <List className="h-4 w-4" />
+                    </ToolbarButton>
+
+                    {/* Numbered list */}
+
+                    <ToolbarButton
+                        title="Numbered list"
+                        active={editor.isActive(
+                            'orderedList',
+                        )}
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .toggleOrderedList()
+                                .run()
+                        }
+                    >
+                        <ListOrdered className="h-4 w-4" />
+                    </ToolbarButton>
+
+                    <ToolbarDivider />
+
+                    {/* Align left */}
+
+                    <ToolbarButton
+                        title="Align left"
+                        active={editor.isActive({
+                            textAlign: 'left',
+                        })}
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .setTextAlign(
+                                    'left',
+                                )
+                                .run()
+                        }
+                    >
+                        <span className="text-xs font-bold">
+                            L
+                        </span>
+                    </ToolbarButton>
+
+                    {/* Center */}
+
+                    <ToolbarButton
+                        title="Align center"
+                        active={editor.isActive({
+                            textAlign: 'center',
+                        })}
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .setTextAlign(
+                                    'center',
+                                )
+                                .run()
+                        }
+                    >
+                        <span className="text-xs font-bold">
+                            C
+                        </span>
+                    </ToolbarButton>
+
+                    {/* Right */}
+
+                    <ToolbarButton
+                        title="Align right"
+                        active={editor.isActive({
+                            textAlign: 'right',
+                        })}
+                        onClick={() =>
+                            editor
+                                .chain()
+                                .focus()
+                                .setTextAlign(
+                                    'right',
+                                )
+                                .run()
+                        }
+                    >
+                        <span className="text-xs font-bold">
+                            R
+                        </span>
+                    </ToolbarButton>
+
+                    <ToolbarDivider />
+
+                    {/* Link */}
+
+                    <ToolbarButton
+                        title="Insert link"
+                        active={editor.isActive(
+                            'link',
+                        )}
+                        onClick={setLink}
+                    >
+                        <LinkIcon className="h-4 w-4" />
+                    </ToolbarButton>
+
+                </div>
 
             </div>
 
@@ -332,11 +643,13 @@ export default function WordEditor({
             {/* DOCUMENT PAGE */}
             {/* ========================================================== */}
 
-            <div className="bg-slate-200 p-8">
+            <div className="overflow-auto bg-slate-200 p-8">
 
                 <div className="mx-auto min-h-[1123px] max-w-[794px] bg-white px-[72px] py-[80px] shadow-xl">
 
-                    <EditorContent editor={editor} />
+                    <EditorContent
+                        editor={editor}
+                    />
 
                 </div>
 
