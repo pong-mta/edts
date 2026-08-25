@@ -316,8 +316,8 @@ export default function WordEditor({
 
             TextAlign.configure({
                 types: ['heading', 'paragraph'],
+                defaultAlignment: 'left',
             }),
-
             Link.configure({
                 openOnClick: false,
                 autolink: true,
