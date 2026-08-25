@@ -957,6 +957,12 @@ export default function WordEditor({
                                                 verticalAlign: 'top',
                                             },
                                         )
+                                        .updateAttributes(
+                                            'tableHeader',
+                                            {
+                                                verticalAlign: 'top',
+                                            },
+                                        )
                                         .run()
                                 }
                             >
@@ -977,6 +983,12 @@ export default function WordEditor({
                                                 verticalAlign: 'middle',
                                             },
                                         )
+                                        .updateAttributes(
+                                            'tableHeader',
+                                            {
+                                                verticalAlign: 'middle',
+                                            },
+                                        )
                                         .run()
                                 }
                             >
@@ -993,6 +1005,12 @@ export default function WordEditor({
                                         .focus()
                                         .updateAttributes(
                                             'tableCell',
+                                            {
+                                                verticalAlign: 'bottom',
+                                            },
+                                        )
+                                        .updateAttributes(
+                                            'tableHeader',
                                             {
                                                 verticalAlign: 'bottom',
                                             },
