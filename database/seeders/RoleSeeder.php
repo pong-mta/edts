@@ -11,6 +11,10 @@ class RoleSeeder extends Seeder
     {
         $roles = [
             [
+                'name' => 'system_admin',
+                'description' => 'System Administrator',
+            ],
+            [
                 'name' => 'department_head',
                 'description' => 'Department Head',
             ],
@@ -18,7 +22,10 @@ class RoleSeeder extends Seeder
                 'name' => 'secretary',
                 'description' => 'Department Secretary',
             ],
-
+            [
+                'name' => 'staff',
+                'description' => 'Department Staff',
+            ],
         ];
 
         foreach ($roles as $role) {

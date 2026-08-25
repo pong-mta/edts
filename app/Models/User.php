@@ -9,6 +9,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 
 class User extends Authenticatable
@@ -24,7 +25,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'phone',
-        'department',
+        'department_id',
         'password',
         'phone_verified',
     ];
@@ -58,11 +59,8 @@ class User extends Authenticatable
         )->withTimestamps();
     }
 
-    public function stores(): HasMany
+    public function department(): BelongsTo
     {
-        return $this->hasMany(
-            Store::class,
-            'owner_id'
-        );
+        return $this->belongsTo(Department::class);
     }
 }
