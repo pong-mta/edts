@@ -429,21 +429,51 @@ export default function WordEditor({
     };
 
     const setCellVerticalAlign = (
-        value: 'top' | 'middle' | 'bottom',
-    ) => {
-        if (!editor) {
-            return;
-        }
+            value: 'top' | 'middle' | 'bottom',
+        ) => {
+            if (!editor) {
+                return;
+            }
 
-        editor
-            .chain()
-            .focus()
-            .setCellAttribute(
-                'verticalAlign',
-                value,
-            )
-            .run();
-    };
+            const { state } = editor;
+            const { $from } = state.selection;
+
+            let cellPos = null;
+
+            for (
+                let depth = $from.depth;
+                depth > 0;
+                depth--
+            ) {
+                const node = $from.node(depth);
+
+                if (
+                    node.type.name === 'tableCell' ||
+                    node.type.name === 'tableHeader'
+                ) {
+                    cellPos =
+                        $from.before(depth);
+
+                    break;
+                }
+            }
+
+            if (cellPos === null) {
+                return;
+            }
+
+            const dom =
+                editor.view.nodeDOM(
+                    cellPos,
+                ) as HTMLElement | null;
+
+            if (!dom) {
+                return;
+            }
+
+            dom.style.verticalAlign =
+                value;
+        };
 
     return (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
