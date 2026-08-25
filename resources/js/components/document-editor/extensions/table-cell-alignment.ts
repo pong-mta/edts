@@ -60,6 +60,32 @@ export const TableCellAlignment = TableCell.extend({
                     };
                 },
             },
+
+            borderColor: {
+                default: null,
+
+                parseHTML: (element) => {
+                    return (
+                        element.getAttribute(
+                            'data-border-color',
+                        ) || null
+                    );
+                },
+
+                renderHTML: (attributes) => {
+                    if (!attributes.borderColor) {
+                        return {};
+                    }
+
+                    return {
+                        'data-border-color':
+                            attributes.borderColor,
+
+                        style:
+                            `border-color: ${attributes.borderColor};`,
+                    };
+                },
+            },
         };
     },
 });

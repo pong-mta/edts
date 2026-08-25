@@ -115,6 +115,48 @@ export default function WordEditor({
     const [showCellColorPicker, setShowCellColorPicker] =
     useState(false);
 
+    const [showBorderColorPicker, setShowBorderColorPicker] =
+    useState(false);
+
+    const setCellBorderColor = (
+        value: string | null,
+    ) => {
+        if (!editor) {
+            return;
+        }
+
+        const { state } = editor;
+        const { $from } = state.selection;
+
+        for (
+            let depth = $from.depth;
+            depth > 0;
+            depth--
+        ) {
+            const node = $from.node(depth);
+
+            if (
+                node.type.name === 'tableCell' ||
+                node.type.name === 'tableHeader'
+            ) {
+                const pos = $from.before(depth);
+
+                const tr = state.tr.setNodeMarkup(
+                    pos,
+                    undefined,
+                    {
+                        ...node.attrs,
+                        borderColor: value,
+                    },
+                );
+
+                editor.view.dispatch(tr);
+
+                return;
+            }
+        }
+    };
+
     const setCellBackgroundColor = (
             value: string | null,
         ) => {
@@ -1114,6 +1156,55 @@ export default function WordEditor({
                                             className="mt-2 block w-full rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
                                         >
                                             No Color
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="relative">
+                                <ToolbarButton
+                                    title="Cell border color"
+                                    onClick={() =>
+                                        setShowBorderColorPicker(
+                                            !showBorderColorPicker,
+                                        )
+                                    }
+                                >
+                                    <span className="text-xs font-bold">
+                                        ▣
+                                    </span>
+                                </ToolbarButton>
+
+                                {showBorderColorPicker && (
+                                    <div className="absolute left-0 top-10 z-50 rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
+                                        <div className="mb-2 text-xs font-semibold text-slate-700">
+                                            Border Color
+                                        </div>
+
+                                        <input
+                                            type="color"
+                                            value="#000000"
+                                            onChange={(event) => {
+                                                setCellBorderColor(
+                                                    event.target.value,
+                                                );
+                                            }}
+                                            className="block h-12 w-20 cursor-pointer rounded-md border border-slate-300 bg-white p-1"
+                                            title="Choose border color"
+                                        />
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setCellBorderColor(null);
+
+                                                setShowBorderColorPicker(
+                                                    false,
+                                                );
+                                            }}
+                                            className="mt-2 block w-full rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                                        >
+                                            Default
                                         </button>
                                     </div>
                                 )}
