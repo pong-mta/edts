@@ -39,6 +39,8 @@ Route::post(
     [AuthController::class, 'login']
 );
 
+
+
 Route::post(
     '/verify-otp',
     [AuthController::class, 'verifyOtp']
