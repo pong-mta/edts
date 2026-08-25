@@ -14,6 +14,7 @@ import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
 import { TableRowHeight } from '@/components/document-editor/extensions/table-row-height';
+import { TableCellAlignment } from '@/components/document-editor/extensions/table-cell-alignment';
 
 import {
     Bold,
@@ -122,7 +123,7 @@ export default function WordEditor({
 
             TableRowHeight,
             TableHeader,
-            TableCell,
+            TableCellAlignment,
 
             TextStyle,
             FontSize,
@@ -944,6 +945,66 @@ export default function WordEditor({
                                     SC
                                 </span>
                             </ToolbarButton>
+                            <ToolbarButton
+                                title="Align cell top"
+                                onClick={() =>
+                                    editor
+                                        .chain()
+                                        .focus()
+                                        .updateAttributes(
+                                            'tableCell',
+                                            {
+                                                verticalAlign: 'top',
+                                            },
+                                        )
+                                        .run()
+                                }
+                            >
+                                <span className="text-xs font-bold">
+                                    ↑
+                                </span>
+                            </ToolbarButton>
+
+                            <ToolbarButton
+                                title="Align cell center"
+                                onClick={() =>
+                                    editor
+                                        .chain()
+                                        .focus()
+                                        .updateAttributes(
+                                            'tableCell',
+                                            {
+                                                verticalAlign: 'middle',
+                                            },
+                                        )
+                                        .run()
+                                }
+                            >
+                                <span className="text-xs font-bold">
+                                    ↕
+                                </span>
+                            </ToolbarButton>
+
+                            <ToolbarButton
+                                title="Align cell bottom"
+                                onClick={() =>
+                                    editor
+                                        .chain()
+                                        .focus()
+                                        .updateAttributes(
+                                            'tableCell',
+                                            {
+                                                verticalAlign: 'bottom',
+                                            },
+                                        )
+                                        .run()
+                                }
+                            >
+                                <span className="text-xs font-bold">
+                                    ↓
+                                </span>
+                            </ToolbarButton>
+
                             <ToolbarButton
                                 title="Delete table"
                                 onClick={() =>
