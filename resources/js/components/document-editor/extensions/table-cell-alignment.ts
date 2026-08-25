@@ -8,23 +8,29 @@ export const TableCellAlignment = TableCell.extend({
             ...this.parent?.(),
 
             verticalAlign: {
-                default: 'top',
+                default: null,
 
                 parseHTML: (element) => {
                     return (
-                        element.style
-                            .verticalAlign ||
-                        'top'
+                        element.getAttribute(
+                            'data-vertical-align',
+                        ) || null
                     );
                 },
 
                 renderHTML: (attributes) => {
-                    const value =
-                        attributes.verticalAlign ||
-                        'top';
+                    if (
+                        !attributes.verticalAlign
+                    ) {
+                        return {};
+                    }
 
                     return {
-                        style: `vertical-align: ${value};`,
+                        'data-vertical-align':
+                            attributes.verticalAlign,
+
+                        style:
+                            `vertical-align: ${attributes.verticalAlign};`,
                     };
                 },
             },

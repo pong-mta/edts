@@ -16,6 +16,7 @@ import TableHeader from '@tiptap/extension-table-header';
 import { TableRowHeight } from '@/components/document-editor/extensions/table-row-height';
 import { TableCellAlignment } from '@/components/document-editor/extensions/table-cell-alignment';
 
+
 import {
     Bold,
     Highlighter,
@@ -424,6 +425,23 @@ export default function WordEditor({
             .toggleHighlight({
                 color: value,
             })
+            .run();
+    };
+
+    const setCellVerticalAlign = (
+        value: 'top' | 'middle' | 'bottom',
+    ) => {
+        if (!editor) {
+            return;
+        }
+
+        editor
+            .chain()
+            .focus()
+            .setCellAttribute(
+                'verticalAlign',
+                value,
+            )
             .run();
     };
 
@@ -955,22 +973,7 @@ export default function WordEditor({
                             <ToolbarButton
                                 title="Align cell top"
                                 onClick={() =>
-                                    editor
-                                        .chain()
-                                        .focus()
-                                        .updateAttributes(
-                                            'tableCell',
-                                            {
-                                                verticalAlign: 'top',
-                                            },
-                                        )
-                                        .updateAttributes(
-                                            'tableHeader',
-                                            {
-                                                verticalAlign: 'top',
-                                            },
-                                        )
-                                        .run()
+                                    setCellVerticalAlign('top')
                                 }
                             >
                                 <span className="text-xs font-bold">
@@ -981,22 +984,7 @@ export default function WordEditor({
                             <ToolbarButton
                                 title="Align cell center"
                                 onClick={() =>
-                                    editor
-                                        .chain()
-                                        .focus()
-                                        .updateAttributes(
-                                            'tableCell',
-                                            {
-                                                verticalAlign: 'middle',
-                                            },
-                                        )
-                                        .updateAttributes(
-                                            'tableHeader',
-                                            {
-                                                verticalAlign: 'middle',
-                                            },
-                                        )
-                                        .run()
+                                    setCellVerticalAlign('middle')
                                 }
                             >
                                 <span className="text-xs font-bold">
@@ -1007,22 +995,7 @@ export default function WordEditor({
                             <ToolbarButton
                                 title="Align cell bottom"
                                 onClick={() =>
-                                    editor
-                                        .chain()
-                                        .focus()
-                                        .updateAttributes(
-                                            'tableCell',
-                                            {
-                                                verticalAlign: 'bottom',
-                                            },
-                                        )
-                                        .updateAttributes(
-                                            'tableHeader',
-                                            {
-                                                verticalAlign: 'bottom',
-                                            },
-                                        )
-                                        .run()
+                                    setCellVerticalAlign('bottom')
                                 }
                             >
                                 <span className="text-xs font-bold">
