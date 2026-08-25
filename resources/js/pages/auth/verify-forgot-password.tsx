@@ -29,12 +29,6 @@ interface ResendResponse {
 const MAX_RESENDS = 3;
 
 export default function VerifyForgotPassword() {
-    /*
-    |--------------------------------------------------------------------------
-    | STATE
-    |--------------------------------------------------------------------------
-    */
-
     const [otp, setOtp] = useState('');
     const [phone, setPhone] = useState('');
     const [userId, setUserId] = useState('');
@@ -100,7 +94,7 @@ export default function VerifyForgotPassword() {
 
         /*
         |--------------------------------------------------------------------------
-        | USER ID
+        | USER
         |--------------------------------------------------------------------------
         */
 
@@ -136,7 +130,7 @@ export default function VerifyForgotPassword() {
 
         /*
         |--------------------------------------------------------------------------
-        | EXPIRATION
+        | OTP EXPIRATION
         |--------------------------------------------------------------------------
         */
 
@@ -181,8 +175,12 @@ export default function VerifyForgotPassword() {
 
     /*
     |--------------------------------------------------------------------------
-    | TIMER
+    | COUNTDOWN
     |--------------------------------------------------------------------------
+    |
+    | This countdown is ONLY used to control RESEND.
+    | It does NOT disable the OTP input or Verify button.
+    |
     */
 
     useEffect(() => {
@@ -227,7 +225,7 @@ export default function VerifyForgotPassword() {
 
     /*
     |--------------------------------------------------------------------------
-    | TIMER DISPLAY
+    | TIMER
     |--------------------------------------------------------------------------
     */
 
@@ -283,14 +281,6 @@ export default function VerifyForgotPassword() {
                 return;
             }
 
-            if (expired) {
-                setError(
-                    'This verification code has expired. Please request a new code.',
-                );
-
-                return;
-            }
-
             if (otp.length !== 6) {
                 setError(
                     'Please enter the 6-digit verification code.',
@@ -310,7 +300,6 @@ export default function VerifyForgotPassword() {
                                 Number(
                                     userId,
                                 ),
-
                             otp,
                         },
                     );
@@ -337,7 +326,7 @@ export default function VerifyForgotPassword() {
 
                 /*
                 |--------------------------------------------------------------------------
-                | REMOVE OTP DATA
+                | REMOVE OTP SESSION
                 |--------------------------------------------------------------------------
                 */
 
@@ -363,7 +352,7 @@ export default function VerifyForgotPassword() {
 
                 /*
                 |--------------------------------------------------------------------------
-                | EXPIRED
+                | OTP EXPIRED
                 |--------------------------------------------------------------------------
                 */
 
@@ -376,7 +365,7 @@ export default function VerifyForgotPassword() {
                     setError(
                         response.data
                             ?.message ||
-                            'This verification code has expired.',
+                            'This verification code has expired. Please request a new code.',
                     );
 
                     return;
@@ -395,7 +384,7 @@ export default function VerifyForgotPassword() {
                     setError(
                         response.data
                             ?.message ||
-                            'Too many verification attempts.',
+                            'Too many verification attempts. Please try again later.',
                     );
 
                     return;
@@ -403,7 +392,7 @@ export default function VerifyForgotPassword() {
 
                 /*
                 |--------------------------------------------------------------------------
-                | VALIDATION / WRONG OTP
+                | WRONG OTP
                 |--------------------------------------------------------------------------
                 */
 
@@ -421,6 +410,10 @@ export default function VerifyForgotPassword() {
     |--------------------------------------------------------------------------
     | RESEND OTP
     |--------------------------------------------------------------------------
+    |
+    | Resend is ONLY available after the 5-minute
+    | timer reaches zero.
+    |
     */
 
     const resendOtp =
@@ -471,11 +464,25 @@ export default function VerifyForgotPassword() {
                     remaining,
                 );
 
+                setSecondsLeft(
+                    Math.max(
+                        0,
+                        Math.floor(
+                            (
+                                newExpiresAt *
+                                    1000 -
+                                Date.now()
+                            ) /
+                                1000,
+                        ),
+                    ),
+                );
+
                 setOtp('');
 
                 /*
                 |--------------------------------------------------------------------------
-                | SAVE SESSION DATA
+                | SAVE STATE
                 |--------------------------------------------------------------------------
                 */
 
@@ -527,7 +534,7 @@ export default function VerifyForgotPassword() {
                     <div className="w-full max-w-[420px]">
 
                         {/* ================================================== */}
-                        {/* LOGO */}
+                        {/* MUNICIPALITY BRANDING */}
                         {/* ================================================== */}
 
                         <div className="mb-4 text-center">
@@ -599,8 +606,16 @@ export default function VerifyForgotPassword() {
                                 }`}
                             >
 
-                                <p className="text-center text-[9px] uppercase tracking-wider text-slate-400">
-                                    Code expires in
+                                <p
+                                    className={`text-center text-[9px] uppercase tracking-wider ${
+                                        expired
+                                            ? 'text-red-400'
+                                            : 'text-slate-400'
+                                    }`}
+                                >
+                                    {expired
+                                        ? 'Code expired'
+                                        : 'Code expires in'}
                                 </p>
 
                                 <p
@@ -638,7 +653,7 @@ export default function VerifyForgotPassword() {
                             )}
 
                             {/* ================================================== */}
-                            {/* FORM */}
+                            {/* OTP FORM */}
                             {/* ================================================== */}
 
                             <form
@@ -659,10 +674,10 @@ export default function VerifyForgotPassword() {
                                     inputMode="numeric"
                                     autoComplete="one-time-code"
                                     maxLength={6}
+                                    autoFocus
                                     value={otp}
                                     disabled={
-                                        processing ||
-                                        expired
+                                        processing
                                     }
                                     onChange={(
                                         event,
@@ -696,7 +711,6 @@ export default function VerifyForgotPassword() {
                                     type="submit"
                                     disabled={
                                         processing ||
-                                        expired ||
                                         otp.length !==
                                             6
                                     }
@@ -726,8 +740,9 @@ export default function VerifyForgotPassword() {
                                         Didn't receive the
                                         code?
                                         <br />
-                                        You can resend after
-                                        the timer expires.
+                                        You can request a new
+                                        code after the timer
+                                        expires.
                                     </p>
                                 ) : resendsRemaining >
                                   0 ? (
