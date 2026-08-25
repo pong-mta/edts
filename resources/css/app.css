@@ -364,7 +364,7 @@
 .word-document td,
 .word-document th {
     min-height: 24px;
-    height: 24px;
+    height: auto;
     vertical-align: top;
 }
 
