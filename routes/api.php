@@ -4,6 +4,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DeviceTokenController;
 use App\Http\Controllers\Api\FCMTestController;
+use App\Models\Department;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -14,14 +15,9 @@ Route::get('/', function () {
     ]);
 });
 
-Route::post(
-    '/register',
-    [AuthController::class, 'register']
-);
-
 Route::get('/departments', function () {
     return response()->json(
-        \App\Models\Department::where('status', true)
+        Department::where('status', true)
             ->orderBy('name')
             ->get([
                 'id',
@@ -30,6 +26,13 @@ Route::get('/departments', function () {
             ])
     );
 });
+
+Route::post(
+    '/register',
+    [AuthController::class, 'register']
+);
+
+
 
 Route::post(
     '/login',
