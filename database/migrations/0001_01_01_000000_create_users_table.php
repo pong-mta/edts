@@ -15,10 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('phone')->unique();
-            $table->foreignId('department_id')
-                ->nullable()
-                ->constrained('departments')
-                ->nullOnDelete();
+            $table->string('department');
             $table->boolean('phone_verified')->default(false);
             $table->string('password');
             $table->timestamps();
