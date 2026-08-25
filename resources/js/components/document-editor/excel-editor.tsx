@@ -196,6 +196,71 @@ export default function ExcelEditor({
                                                                     .value,
                                                             )
                                                         }
+                                                        onKeyDown={(event) => {
+                                                            if (!selectedCell) {
+                                                                return;
+                                                            }
+
+                                                            const { row, col } =
+                                                                selectedCell;
+
+                                                            if (event.key === 'ArrowDown') {
+                                                                event.preventDefault();
+
+                                                                setSelectedCell({
+                                                                    row: Math.min(
+                                                                        row + 1,
+                                                                        rows.length - 1,
+                                                                    ),
+                                                                    col,
+                                                                });
+                                                            }
+
+                                                            if (event.key === 'ArrowUp') {
+                                                                event.preventDefault();
+
+                                                                setSelectedCell({
+                                                                    row: Math.max(row - 1, 0),
+                                                                    col,
+                                                                });
+                                                            }
+
+                                                            if (event.key === 'ArrowRight') {
+                                                                event.preventDefault();
+
+                                                                setSelectedCell({
+                                                                    row,
+                                                                    col: Math.min(
+                                                                        col + 1,
+                                                                        DEFAULT_COLUMNS - 1,
+                                                                    ),
+                                                                });
+                                                            }
+
+                                                            if (event.key === 'ArrowLeft') {
+                                                                event.preventDefault();
+
+                                                                setSelectedCell({
+                                                                    row,
+                                                                    col: Math.max(
+                                                                        col - 1,
+                                                                        0,
+                                                                    ),
+                                                                });
+                                                            }
+
+                                                            if (event.key === 'Enter') {
+                                                                event.preventDefault();
+
+                                                                setSelectedCell({
+                                                                    row: Math.min(
+                                                                        row + 1,
+                                                                        rows.length - 1,
+                                                                    ),
+                                                                    col,
+                                                                });
+                                                            }
+                                                        }}
                                                         onBlur={() =>
                                                             setSelectedCell(
                                                                 null,
