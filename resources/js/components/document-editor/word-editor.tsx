@@ -916,7 +916,20 @@ export default function WordEditor({
                                     −C
                                 </span>
                             </ToolbarButton>
-
+                            <ToolbarButton
+                                title="Merge cells"
+                                onClick={() =>
+                                    editor
+                                        .chain()
+                                        .focus()
+                                        .mergeCells()
+                                        .run()
+                                }
+                            >
+                                <span className="text-xs font-bold">
+                                    MC
+                                </span>
+                            </ToolbarButton>
                             <ToolbarButton
                                 title="Delete table"
                                 onClick={() =>
