@@ -53,18 +53,38 @@ const FONT_FAMILIES = [
 ];
 
 const FONT_SIZES = [
-    '10px',
-    '11px',
-    '12px',
-    '14px',
-    '16px',
-    '18px',
-    '20px',
-    '24px',
-    '28px',
-    '32px',
-    '36px',
-    '48px',
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    14,
+    16,
+    18,
+    20,
+    22,
+    24,
+    26,
+    28,
+    32,
+    36,
+    40,
+    44,
+    48,
+    54,
+    60,
+    72,
+    80,
+    90,
+    100,
+    110,
+    120,
+    130,
+    140,
+    150,
 ];
 
 export default function WordEditor({
@@ -365,29 +385,30 @@ export default function WordEditor({
 
                     {/* Font size */}
 
-                    <select
-                        value={fontSize}
-                        onChange={(event) =>
-                            setFontSizeValue(
-                                event.target.value,
-                            )
-                        }
-                        className="h-8 w-[72px] rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500"
-                    >
-                        {FONT_SIZES.map(
-                            (size) => (
-                                <option
-                                    key={size}
-                                    value={size}
-                                >
-                                    {size.replace(
-                                        'px',
-                                        '',
-                                    )}
-                                </option>
-                            ),
-                        )}
-                    </select>
+                    <div className="flex items-center">
+
+                        <input
+                            type="number"
+                            min="5"
+                            max="150"
+                            step="1"
+                            value={fontSize}
+                            onChange={(event) => {
+                                const value = Number(event.target.value);
+
+                                if (value >= 5 && value <= 150) {
+                                    setFontSizeValue(event.target.value);
+                                }
+                            }}
+                            className="h-8 w-[58px] rounded-l-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500"
+                            title="Font size"
+                        />
+
+                        <span className="flex h-8 items-center rounded-r-md border border-l-0 border-slate-200 bg-slate-50 px-2 text-xs text-slate-500">
+                            pt
+                        </span>
+
+                    </div>
 
                     <ToolbarDivider />
 
