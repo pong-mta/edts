@@ -165,40 +165,30 @@ export default function WordEditor({
     const setCellBorderWidth = (
         value: number | null,
     ) => {
-        if (!editor) {
+        if (!editor || value === null) {
             return;
         }
 
-        const { state } = editor;
-        const { $from } = state.selection;
-
-        for (
-            let depth = $from.depth;
-            depth > 0;
-            depth--
+        if (
+            !Number.isFinite(value) ||
+            value < 1 ||
+            value > 10
         ) {
-            const node = $from.node(depth);
-
-            if (
-                node.type.name === 'tableCell' ||
-                node.type.name === 'tableHeader'
-            ) {
-                const pos = $from.before(depth);
-
-                const tr = state.tr.setNodeMarkup(
-                    pos,
-                    undefined,
-                    {
-                        ...node.attrs,
-                        borderWidth: value,
-                    },
-                );
-                setBorderWidth(String(value ?? 1));
-                editor.view.dispatch(tr);
-
-                return;
-            }
+            return;
         }
+
+        editor
+            .chain()
+            .focus()
+            .updateAttributes('tableCell', {
+                borderWidth: value,
+            })
+            .updateAttributes('tableHeader', {
+                borderWidth: value,
+            })
+            .run();
+
+        setBorderWidth(String(value));
     };
 
     const setCellBorderStyle = (
@@ -1328,6 +1318,9 @@ export default function WordEditor({
                                     max="10"
                                     step="1"
                                     value={borderWidth}
+                                    onChange={(event) => {
+                                        setBorderWidth(event.target.value);
+                                    }}
                                     onKeyDown={(event) => {
                                         if (event.key !== 'Enter') {
                                             return;
@@ -1339,15 +1332,20 @@ export default function WordEditor({
                                             event.currentTarget.value,
                                         );
 
-                                        if (
-                                            !Number.isFinite(width) ||
-                                            width < 1 ||
-                                            width > 10
-                                        ) {
-                                            return;
-                                        }
-
                                         setCellBorderWidth(width);
+                                    }}
+                                    onBlur={(event) => {
+                                        const width = Number(
+                                            event.currentTarget.value,
+                                        );
+
+                                        if (
+                                            Number.isFinite(width) &&
+                                            width >= 1 &&
+                                            width <= 10
+                                        ) {
+                                            setCellBorderWidth(width);
+                                        }
                                     }}
                                     className="h-8 w-[58px] rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500"
                                     title="Border width"
