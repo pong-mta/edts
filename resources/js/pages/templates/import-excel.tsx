@@ -18,7 +18,7 @@ import {
     Upload,
 } from 'lucide-react';
 
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 import {
     ExcelCell,
@@ -334,23 +334,7 @@ export default function ImportExcel() {
                                     worksheet[
                                         address
                                     ];
-                                if (
-                                    address === 'A1'
-                                ) {
-                                    console.log(
-                                        'A1 SOURCE CELL:',
-                                        JSON.stringify(
-                                            sourceCell,
-                                            null,
-                                            2,
-                                        ),
-                                    );
-
-                                    console.log(
-                                        'A1 STYLE:',
-                                        sourceCell.s,
-                                    );
-                                }
+                               
 
                                 if (
                                     !sourceCell
