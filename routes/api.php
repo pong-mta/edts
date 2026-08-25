@@ -19,6 +19,18 @@ Route::post(
     [AuthController::class, 'register']
 );
 
+Route::get('/departments', function () {
+    return response()->json(
+        \App\Models\Department::where('status', true)
+            ->orderBy('name')
+            ->get([
+                'id',
+                'name',
+                'code',
+            ])
+    );
+});
+
 Route::post(
     '/login',
     [AuthController::class, 'login']
