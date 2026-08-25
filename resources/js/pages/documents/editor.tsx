@@ -11,6 +11,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import WordEditor from '@/components/document-editor/word-editor';
 
+
 interface Department {
     id: number;
     name: string;

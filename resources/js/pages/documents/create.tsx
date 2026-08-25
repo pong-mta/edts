@@ -10,6 +10,7 @@ import { FormEventHandler } from 'react';
 
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
+import ExcelEditor from '@/components/document-editor/excel-editor';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -228,6 +229,12 @@ export default function CreateDocument() {
                                 <p className="mt-2 text-xs font-medium text-red-600">
                                     {errors.document_type}
                                 </p>
+                            )}
+
+                            {data.document_type === 'excel' && (
+                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                                    <ExcelEditor />
+                                </div>
                             )}
 
                         </div>
