@@ -112,6 +112,48 @@ export default function WordEditor({
     const [rowHeight, setRowHeight] =
     useState('24');
 
+    const [showCellColorPicker, setShowCellColorPicker] =
+    useState(false);
+
+    const setCellBackgroundColor = (
+        value: string | null,
+    ) => {
+        if (!editor) {
+            return;
+        }
+
+        const { state } = editor;
+        const { $from } = state.selection;
+
+        for (
+            let depth = $from.depth;
+            depth > 0;
+            depth--
+        ) {
+            const node = $from.node(depth);
+
+            if (
+                node.type.name === 'tableCell' ||
+                node.type.name === 'tableHeader'
+            ) {
+                const pos = $from.before(depth);
+
+                const tr = state.tr.setNodeMarkup(
+                    pos,
+                    undefined,
+                    {
+                        ...node.attrs,
+                        backgroundColor: value,
+                    },
+                );
+
+                editor.view.dispatch(tr);
+
+                return;
+            }
+        }
+    };
+
  
     
 
@@ -1025,6 +1067,61 @@ export default function WordEditor({
                                     ↓
                                 </span>
                             </ToolbarButton>
+
+                            <div className="relative">
+                                <ToolbarButton
+                                    title="Cell background color"
+                                    onClick={() =>
+                                        setShowCellColorPicker(
+                                            !showCellColorPicker,
+                                        )
+                                    }
+                                >
+                                    <span className="text-xs font-bold">
+                                        🖌
+                                    </span>
+                                </ToolbarButton>
+
+                                {showCellColorPicker && (
+                                    <div className="absolute left-0 top-10 z-50 rounded-lg border border-slate-200 bg-white p-3 shadow-xl">
+                                        <div className="mb-2 text-xs font-semibold text-slate-700">
+                                            Cell Color
+                                        </div>
+
+                                        <input
+                                            type="color"
+                                            defaultValue="#ffffff"
+                                            onChange={(event) => {
+                                                setCellBackgroundColor(
+                                                    event.target.value,
+                                                );
+
+                                                setShowCellColorPicker(
+                                                    false,
+                                                );
+                                            }}
+                                            className="h-10 w-16 cursor-pointer rounded border border-slate-300"
+                                            title="Choose cell color"
+                                        />
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setCellBackgroundColor(
+                                                    null,
+                                                );
+
+                                                setShowCellColorPicker(
+                                                    false,
+                                                );
+                                            }}
+                                            className="mt-2 block w-full rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                                        >
+                                            No Color
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
 
                             <ToolbarButton
                                 title="Delete table"
