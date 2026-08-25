@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import * as XLSX from 'xlsx-js-style';
+import JSZip from 'jszip';
 
 import {
     ExcelCell,
@@ -32,317 +33,398 @@ const IMPORT_STORAGE_KEY =
 
 /*
 |--------------------------------------------------------------------------
-| Helpers
+| XML helpers
 |--------------------------------------------------------------------------
 */
 
+function xmlValue(
+    element: Element | null,
+    attribute: string,
+): string | undefined {
+    if (!element) {
+        return undefined;
+    }
+
+    return (
+        element.getAttribute(
+            attribute,
+        ) ?? undefined
+    );
+}
+
+function xmlBool(
+    value: string | null,
+): boolean {
+    if (!value) {
+        return false;
+    }
+
+    return (
+        value === '1' ||
+        value === 'true' ||
+        value === 'on'
+    );
+}
+
 function colorToHex(
-    color: any,
+    color: Element | null,
 ): string | undefined {
     if (!color) {
         return undefined;
     }
 
-    let rgb: string | undefined;
+    let value =
+        color.getAttribute('rgb');
 
-    if (
-        typeof color.rgb === 'string'
-    ) {
-        rgb = color.rgb;
+    if (value) {
+        if (value.length === 8) {
+            value = value.substring(2);
+        }
+
+        if (value.length === 6) {
+            return `#${value}`;
+        }
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Theme / indexed colors
+    | Indexed Excel colors
     |--------------------------------------------------------------------------
     */
 
-    if (!rgb && color.theme !== undefined) {
-        /*
-        We cannot reliably reproduce every
-        Excel theme color without the workbook
-        theme table.
-        */
-        return undefined;
-    }
+    const indexed =
+        color.getAttribute(
+            'indexed',
+        );
 
-    if (!rgb && color.indexed !== undefined) {
+    if (indexed !== null) {
         const indexedColors: Record<
-            number,
+            string,
             string
         > = {
-            0: '#000000',
-            1: '#FFFFFF',
-            2: '#FF0000',
-            3: '#00FF00',
-            4: '#0000FF',
-            5: '#FFFF00',
-            6: '#FF00FF',
-            7: '#00FFFF',
-            8: '#000000',
-            9: '#FFFFFF',
-            10: '#FF0000',
-            11: '#00FF00',
-            12: '#0000FF',
-            13: '#FFFF00',
-            14: '#FF00FF',
-            15: '#00FFFF',
+            '0': '#000000',
+            '1': '#FFFFFF',
+            '2': '#FF0000',
+            '3': '#00FF00',
+            '4': '#0000FF',
+            '5': '#FFFF00',
+            '6': '#FF00FF',
+            '7': '#00FFFF',
+            '8': '#000000',
+            '9': '#FFFFFF',
+            '10': '#FF0000',
+            '11': '#00FF00',
+            '12': '#0000FF',
+            '13': '#FFFF00',
+            '14': '#FF00FF',
+            '15': '#00FFFF',
         };
 
-        return indexedColors[color.indexed];
+        return indexedColors[indexed];
     }
 
-    if (!rgb) {
-        return undefined;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Excel ARGB → RGB
-    |--------------------------------------------------------------------------
-    */
-
-    if (rgb.length === 8) {
-        rgb = rgb.substring(2);
-    }
-
-    if (rgb.length !== 6) {
-        return undefined;
-    }
-
-    return `#${rgb}`;
+    return undefined;
 }
 
-function borderToString(
-    border: any,
-): string | undefined {
-    if (!border) {
-        return undefined;
+function getChildren(
+    parent: Element | null,
+    localName: string,
+): Element[] {
+    if (!parent) {
+        return [];
     }
 
-    if (!border.style) {
-        return undefined;
+    return Array.from(
+        parent.children,
+    ).filter(
+        (child) =>
+            child.localName ===
+            localName,
+    );
+}
+
+function getFirstChild(
+    parent: Element | null,
+    localName: string,
+): Element | null {
+    if (!parent) {
+        return null;
     }
 
-    const color =
-        colorToHex(border.color);
-
-    if (color) {
-        return `${border.style}:${color}`;
-    }
-
-    return border.style;
+    return (
+        Array.from(
+            parent.children,
+        ).find(
+            (child) =>
+                child.localName ===
+                localName,
+        ) ?? null
+    );
 }
 
 /*
 |--------------------------------------------------------------------------
-| Convert XLSX cell → EDTS cell
+| Excel style model
 |--------------------------------------------------------------------------
 */
 
-function convertCell(
-    sourceCell: any,
-): ExcelCell {
-    let value = '';
+type ParsedFont = {
+    bold?: boolean;
+    italic?: boolean;
+    underline?: boolean;
+    fontSize?: number;
+    fontFamily?: string;
+    color?: string;
+};
 
-    /*
-    |--------------------------------------------------------------------------
-    | Value
-    |--------------------------------------------------------------------------
-    */
+type ParsedFill = {
+    backgroundColor?: string;
+};
 
-    if (
-        sourceCell?.v !== undefined &&
-        sourceCell?.v !== null
-    ) {
-        value = String(sourceCell.v);
+type ParsedBorder = {
+    top?: string;
+    right?: string;
+    bottom?: string;
+    left?: string;
+};
+
+type ParsedAlignment = {
+    horizontal?:
+        | 'left'
+        | 'center'
+        | 'right';
+
+    vertical?:
+        | 'top'
+        | 'middle'
+        | 'bottom';
+
+    wrapText?: boolean;
+};
+
+type ParsedStyle = {
+    font?: ParsedFont;
+    fill?: ParsedFill;
+    border?: ParsedBorder;
+    alignment?: ParsedAlignment;
+    numberFormat?: string;
+};
+
+type ParsedStyles = {
+    styles: ParsedStyle[];
+};
+
+/*
+|--------------------------------------------------------------------------
+| Border style
+|--------------------------------------------------------------------------
+*/
+
+function parseBorderSide(
+    side: Element | null,
+): string | undefined {
+    if (!side) {
+        return undefined;
     }
-
-    const cell: ExcelCell = {
-        value,
-    };
-
-    /*
-    |--------------------------------------------------------------------------
-    | Formula
-    |--------------------------------------------------------------------------
-    */
-
-    if (sourceCell?.f) {
-        cell.formula =
-            String(sourceCell.f);
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Number format
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        typeof sourceCell?.z ===
-        'string'
-    ) {
-        cell.numberFormat =
-            sourceCell.z;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Style
-    |--------------------------------------------------------------------------
-    */
 
     const style =
-        sourceCell?.s;
+        side.getAttribute('style');
 
     if (!style) {
-        return cell;
+        return undefined;
     }
+
+    const color =
+        colorToHex(
+            getFirstChild(
+                side,
+                'color',
+            ),
+        );
+
+    if (color) {
+        return `${style}:${color}`;
+    }
+
+    return style;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Parse styles.xml
+|--------------------------------------------------------------------------
+*/
+
+function parseStylesXml(
+    xml: string,
+): ParsedStyles {
+    const parser =
+        new DOMParser();
+
+    const document =
+        parser.parseFromString(
+            xml,
+            'application/xml',
+        );
 
     /*
     |--------------------------------------------------------------------------
-    | Font
+    | Fonts
     |--------------------------------------------------------------------------
     */
 
-    if (style.font) {
-        const font =
-            style.font;
+    const fontsElement =
+        getFirstChild(
+            document.documentElement,
+            'fonts',
+        );
 
-        if (font.bold) {
-            cell.bold = true;
-        }
+    const fonts: ParsedFont[] =
+        getChildren(
+            fontsElement,
+            'font',
+        ).map((fontElement) => {
+            const font: ParsedFont =
+                {};
 
-        if (font.italic) {
-            cell.italic = true;
-        }
+            if (
+                getFirstChild(
+                    fontElement,
+                    'b',
+                )
+            ) {
+                font.bold = true;
+            }
 
-        if (
-            font.underline
-        ) {
-            cell.underline = true;
-        }
+            if (
+                getFirstChild(
+                    fontElement,
+                    'i',
+                )
+            ) {
+                font.italic = true;
+            }
 
-        if (
-            typeof font.sz ===
-            'number'
-        ) {
-            cell.fontSize =
-                font.sz;
-        }
+            if (
+                getFirstChild(
+                    fontElement,
+                    'u',
+                )
+            ) {
+                font.underline =
+                    true;
+            }
 
-        if (
-            typeof font.name ===
-            'string'
-        ) {
-            cell.fontFamily =
-                font.name;
-        }
-
-        const fontColor =
-            colorToHex(
-                font.color,
-            );
-
-        if (fontColor) {
-            cell.color =
-                fontColor;
-        }
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Fill
-    |--------------------------------------------------------------------------
-    */
-
-    if (style.fill) {
-        const fill =
-            style.fill;
-
-        let backgroundColor =
-            colorToHex(
-                fill.fgColor,
-            );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Some Excel files use bgColor
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            !backgroundColor
-        ) {
-            backgroundColor =
-                colorToHex(
-                    fill.bgColor,
+            const size =
+                getFirstChild(
+                    fontElement,
+                    'sz',
                 );
-        }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Only use an actual fill
-        |--------------------------------------------------------------------------
-        */
+            if (size) {
+                const value =
+                    Number(
+                        size.getAttribute(
+                            'val',
+                        ),
+                    );
 
-        if (
-            backgroundColor &&
-            (
-                fill.patternType ||
-                fill.pattern
-            )
-        ) {
-            cell.backgroundColor =
-                backgroundColor;
-        }
-    }
+                if (
+                    Number.isFinite(
+                        value,
+                    )
+                ) {
+                    font.fontSize =
+                        value;
+                }
+            }
+
+            const name =
+                getFirstChild(
+                    fontElement,
+                    'name',
+                );
+
+            if (name) {
+                font.fontFamily =
+                    name.getAttribute(
+                        'val',
+                    ) ??
+                    undefined;
+            }
+
+            font.color =
+                colorToHex(
+                    getFirstChild(
+                        fontElement,
+                        'color',
+                    ),
+                );
+
+            return font;
+        });
 
     /*
     |--------------------------------------------------------------------------
-    | Alignment
+    | Fills
     |--------------------------------------------------------------------------
     */
 
-    if (style.alignment) {
-        const alignment =
-            style.alignment;
+    const fillsElement =
+        getFirstChild(
+            document.documentElement,
+            'fills',
+        );
 
-        if (
-            alignment.horizontal ===
-                'left' ||
-            alignment.horizontal ===
-                'center' ||
-            alignment.horizontal ===
-                'right'
-        ) {
-            cell.horizontalAlign =
-                alignment.horizontal;
-        }
+    const fills: ParsedFill[] =
+        getChildren(
+            fillsElement,
+            'fill',
+        ).map((fillElement) => {
+            const fill: ParsedFill =
+                {};
 
-        if (
-            alignment.vertical ===
-                'top' ||
-            alignment.vertical ===
-                'center' ||
-            alignment.vertical ===
-                'bottom'
-        ) {
-            cell.verticalAlign =
-                alignment.vertical ===
-                'center'
-                    ? 'middle'
-                    : alignment.vertical;
-        }
+            const pattern =
+                getFirstChild(
+                    fillElement,
+                    'patternFill',
+                );
 
-        if (
-            alignment.wrapText
-        ) {
-            cell.wrapText =
-                true;
-        }
-    }
+            if (pattern) {
+                const patternType =
+                    pattern.getAttribute(
+                        'patternType',
+                    );
+
+                /*
+                |--------------------------------------------------------------------------
+                | Ignore "none"
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    patternType &&
+                    patternType !== 'none'
+                ) {
+                    const foreground =
+                        colorToHex(
+                            getFirstChild(
+                                pattern,
+                                'fgColor',
+                            ),
+                        );
+
+                    if (
+                        foreground
+                    ) {
+                        fill.backgroundColor =
+                            foreground;
+                    }
+                }
+            }
+
+            return fill;
+        });
 
     /*
     |--------------------------------------------------------------------------
@@ -350,39 +432,619 @@ function convertCell(
     |--------------------------------------------------------------------------
     */
 
-    if (style.border) {
-        const border: ExcelCell['border'] =
-            {};
+    const bordersElement =
+        getFirstChild(
+            document.documentElement,
+            'borders',
+        );
 
-        border.top =
-            borderToString(
-                style.border.top,
-            );
+    const borders: ParsedBorder[] =
+        getChildren(
+            bordersElement,
+            'border',
+        ).map((borderElement) => {
+            const border: ParsedBorder =
+                {};
 
-        border.right =
-            borderToString(
-                style.border.right,
-            );
+            border.top =
+                parseBorderSide(
+                    getFirstChild(
+                        borderElement,
+                        'top',
+                    ),
+                );
 
-        border.bottom =
-            borderToString(
-                style.border.bottom,
-            );
+            border.right =
+                parseBorderSide(
+                    getFirstChild(
+                        borderElement,
+                        'right',
+                    ),
+                );
 
-        border.left =
-            borderToString(
-                style.border.left,
+            border.bottom =
+                parseBorderSide(
+                    getFirstChild(
+                        borderElement,
+                        'bottom',
+                    ),
+                );
+
+            border.left =
+                parseBorderSide(
+                    getFirstChild(
+                        borderElement,
+                        'left',
+                    ),
+                );
+
+            return border;
+        });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Number formats
+    |--------------------------------------------------------------------------
+    */
+
+    const numFmtMap =
+        new Map<
+            number,
+            string
+        >();
+
+    const numFmtsElement =
+        getFirstChild(
+            document.documentElement,
+            'numFmts',
+        );
+
+    getChildren(
+        numFmtsElement,
+        'numFmt',
+    ).forEach((element) => {
+        const id = Number(
+            element.getAttribute(
+                'numFmtId',
+            ),
+        );
+
+        const format =
+            element.getAttribute(
+                'formatCode',
             );
 
         if (
-            border.top ||
-            border.right ||
-            border.bottom ||
-            border.left
+            Number.isFinite(id) &&
+            format
         ) {
-            cell.border =
-                border;
+            numFmtMap.set(
+                id,
+                format,
+            );
         }
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cell XFs
+    |--------------------------------------------------------------------------
+    */
+
+    const cellXfsElement =
+        getFirstChild(
+            document.documentElement,
+            'cellXfs',
+        );
+
+    const xfs =
+        getChildren(
+            cellXfsElement,
+            'xf',
+        );
+
+    const builtinNumberFormats: Record<
+        number,
+        string
+    > = {
+        0: 'General',
+        1: '0',
+        2: '0.00',
+        3: '#,##0',
+        4: '#,##0.00',
+        9: '0%',
+        10: '0.00%',
+        11: '0.00E+00',
+        12: '# ?/?',
+        13: '# ??/??',
+        14: 'm/d/yy',
+        15: 'd-mmm-yy',
+        16: 'd-mmm',
+        17: 'mmm-yy',
+        18: 'h:mm AM/PM',
+        19: 'h:mm:ss AM/PM',
+        20: 'h:mm',
+        21: 'h:mm:ss',
+        22: 'm/d/yy h:mm',
+        37: '#,##0 ;(#,##0)',
+        38: '#,##0 ;[Red](#,##0)',
+        39: '#,##0.00;(#,##0.00)',
+        40: '#,##0.00;[Red](#,##0.00)',
+        45: 'mm:ss',
+        46: '[h]:mm:ss',
+        47: 'mmss.0',
+        48: '##0.0E+0',
+        49: '@',
+    };
+
+    const styles: ParsedStyle[] =
+        xfs.map((xf) => {
+            const style: ParsedStyle =
+                {};
+
+            /*
+            |--------------------------------------------------------------------------
+            | Font
+            |--------------------------------------------------------------------------
+            */
+
+            const fontId =
+                Number(
+                    xf.getAttribute(
+                        'fontId',
+                    ) ?? '0',
+                );
+
+            if (
+                fonts[fontId]
+            ) {
+                style.font =
+                    fonts[fontId];
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Fill
+            |--------------------------------------------------------------------------
+            */
+
+            const fillId =
+                Number(
+                    xf.getAttribute(
+                        'fillId',
+                    ) ?? '0',
+                );
+
+            if (
+                fills[fillId]
+            ) {
+                style.fill =
+                    fills[fillId];
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Border
+            |--------------------------------------------------------------------------
+            */
+
+            const borderId =
+                Number(
+                    xf.getAttribute(
+                        'borderId',
+                    ) ?? '0',
+                );
+
+            if (
+                borders[borderId]
+            ) {
+                style.border =
+                    borders[
+                        borderId
+                    ];
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Number format
+            |--------------------------------------------------------------------------
+            */
+
+            const numFmtId =
+                Number(
+                    xf.getAttribute(
+                        'numFmtId',
+                    ) ?? '0',
+                );
+
+            if (
+                numFmtMap.has(
+                    numFmtId,
+                )
+            ) {
+                style.numberFormat =
+                    numFmtMap.get(
+                        numFmtId,
+                    );
+            } else if (
+                builtinNumberFormats[
+                    numFmtId
+                ]
+            ) {
+                style.numberFormat =
+                    builtinNumberFormats[
+                        numFmtId
+                    ];
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Alignment
+            |--------------------------------------------------------------------------
+            */
+
+            const alignment =
+                getFirstChild(
+                    xf,
+                    'alignment',
+                );
+
+            if (alignment) {
+                const parsedAlignment: ParsedAlignment =
+                    {};
+
+                const horizontal =
+                    alignment.getAttribute(
+                        'horizontal',
+                    );
+
+                if (
+                    horizontal ===
+                        'left' ||
+                    horizontal ===
+                        'center' ||
+                    horizontal ===
+                        'right'
+                ) {
+                    parsedAlignment.horizontal =
+                        horizontal;
+                }
+
+                const vertical =
+                    alignment.getAttribute(
+                        'vertical',
+                    );
+
+                if (
+                    vertical ===
+                        'top' ||
+                    vertical ===
+                        'center' ||
+                    vertical ===
+                        'bottom'
+                ) {
+                    parsedAlignment.vertical =
+                        vertical ===
+                        'center'
+                            ? 'middle'
+                            : vertical;
+                }
+
+                if (
+                    xmlBool(
+                        alignment.getAttribute(
+                            'wrapText',
+                        ),
+                    )
+                ) {
+                    parsedAlignment.wrapText =
+                        true;
+                }
+
+                if (
+                    parsedAlignment.horizontal ||
+                    parsedAlignment.vertical ||
+                    parsedAlignment.wrapText
+                ) {
+                    style.alignment =
+                        parsedAlignment;
+                }
+            }
+
+            return style;
+        });
+
+    return {
+        styles,
+    };
+}
+
+/*
+|--------------------------------------------------------------------------
+| Parse worksheet style indexes
+|--------------------------------------------------------------------------
+*/
+
+function parseWorksheetStyles(
+    xml: string,
+): Map<
+    string,
+    number
+> {
+    const parser =
+        new DOMParser();
+
+    const document =
+        parser.parseFromString(
+            xml,
+            'application/xml',
+        );
+
+    const result =
+        new Map<
+            string,
+            number
+        >();
+
+    const cells =
+        Array.from(
+            document.getElementsByTagName(
+                'c',
+            ),
+        );
+
+    cells.forEach((cell) => {
+        const reference =
+            cell.getAttribute('r');
+
+        if (!reference) {
+            return;
+        }
+
+        const styleIndex =
+            Number(
+                cell.getAttribute('s') ??
+                    '0',
+            );
+
+        result.set(
+            reference,
+            Number.isFinite(
+                styleIndex,
+            )
+                ? styleIndex
+                : 0,
+        );
+    });
+
+    return result;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Parse worksheet dimensions
+|--------------------------------------------------------------------------
+*/
+
+function parseWorksheetDimensions(
+    xml: string,
+) {
+    const parser =
+        new DOMParser();
+
+    const document =
+        parser.parseFromString(
+            xml,
+            'application/xml',
+        );
+
+    const rows =
+        Array.from(
+            document.getElementsByTagName(
+                'row',
+            ),
+        );
+
+    const rowHeights =
+        new Map<
+            number,
+            number
+        >();
+
+    rows.forEach((row) => {
+        const rowNumber =
+            Number(
+                row.getAttribute('r'),
+            );
+
+        const height =
+            Number(
+                row.getAttribute(
+                    'ht',
+                ),
+            );
+
+        if (
+            Number.isFinite(
+                rowNumber,
+            ) &&
+            Number.isFinite(
+                height,
+            )
+        ) {
+            rowHeights.set(
+                rowNumber,
+                height * 1.333333,
+            );
+        }
+    });
+
+    const cols =
+        Array.from(
+            document.getElementsByTagName(
+                'col',
+            ),
+        );
+
+    const columnWidths =
+        new Map<
+            number,
+            number
+        >();
+
+    cols.forEach((column) => {
+        const min =
+            Number(
+                column.getAttribute(
+                    'min',
+                ),
+            );
+
+        const max =
+            Number(
+                column.getAttribute(
+                    'max',
+                ),
+            );
+
+        const width =
+            Number(
+                column.getAttribute(
+                    'width',
+                ),
+            );
+
+        if (
+            !Number.isFinite(
+                min,
+            ) ||
+            !Number.isFinite(
+                max,
+            ) ||
+            !Number.isFinite(
+                width,
+            )
+        ) {
+            return;
+        }
+
+        for (
+            let i = min;
+            i <= max;
+            i++
+        ) {
+            columnWidths.set(
+                i,
+                width * 7,
+            );
+        }
+    });
+
+    return {
+        rowHeights,
+        columnWidths,
+    };
+}
+
+/*
+|--------------------------------------------------------------------------
+| Apply parsed style
+|--------------------------------------------------------------------------
+*/
+
+function applyStyle(
+    cell: ExcelCell,
+    style: ParsedStyle | undefined,
+): ExcelCell {
+    if (!style) {
+        return cell;
+    }
+
+    if (style.font) {
+        if (
+            style.font.bold
+        ) {
+            cell.bold = true;
+        }
+
+        if (
+            style.font.italic
+        ) {
+            cell.italic = true;
+        }
+
+        if (
+            style.font.underline
+        ) {
+            cell.underline =
+                true;
+        }
+
+        if (
+            style.font.fontSize !==
+            undefined
+        ) {
+            cell.fontSize =
+                style.font.fontSize;
+        }
+
+        if (
+            style.font.fontFamily
+        ) {
+            cell.fontFamily =
+                style.font.fontFamily;
+        }
+
+        if (
+            style.font.color
+        ) {
+            cell.color =
+                style.font.color;
+        }
+    }
+
+    if (
+        style.fill?.backgroundColor
+    ) {
+        cell.backgroundColor =
+            style.fill.backgroundColor;
+    }
+
+    if (style.alignment) {
+        if (
+            style.alignment
+                .horizontal
+        ) {
+            cell.horizontalAlign =
+                style.alignment.horizontal;
+        }
+
+        if (
+            style.alignment
+                .vertical
+        ) {
+            cell.verticalAlign =
+                style.alignment.vertical;
+        }
+
+        if (
+            style.alignment.wrapText
+        ) {
+            cell.wrapText =
+                true;
+        }
+    }
+
+    if (style.border) {
+        cell.border =
+            style.border;
+    }
+
+    if (
+        style.numberFormat
+    ) {
+        cell.numberFormat =
+            style.numberFormat;
     }
 
     return cell;
@@ -411,7 +1073,7 @@ export default function ImportExcel() {
 
     /*
     |--------------------------------------------------------------------------
-    | Import Excel
+    | Import
     |--------------------------------------------------------------------------
     */
 
@@ -448,43 +1110,77 @@ export default function ImportExcel() {
         try {
             /*
             |--------------------------------------------------------------------------
-            | Read XLSX
+            | Read file
             |--------------------------------------------------------------------------
             */
 
             const buffer =
                 await selected.arrayBuffer();
 
+            /*
+            |--------------------------------------------------------------------------
+            | SheetJS workbook
+            |--------------------------------------------------------------------------
+            */
+
             const sourceWorkbook =
                 XLSX.read(buffer, {
                     type: 'array',
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Important
-                    |--------------------------------------------------------------------------
-                    */
-
                     cellStyles: true,
-
                     cellNF: true,
-
                     cellFormula: true,
-
                     cellHTML: true,
-
                     cellText: true,
                 });
 
             /*
             |--------------------------------------------------------------------------
-            | Debug
+            | JSZip
+            |--------------------------------------------------------------------------
+            */
+
+            const zip =
+                await JSZip.loadAsync(
+                    buffer,
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | styles.xml
+            |--------------------------------------------------------------------------
+            */
+
+            const stylesFile =
+                zip.file(
+                    'xl/styles.xml',
+                );
+
+            let parsedStyles: ParsedStyles =
+                {
+                    styles: [],
+                };
+
+            if (stylesFile) {
+                const stylesXml =
+                    await stylesFile.async(
+                        'text',
+                    );
+
+                parsedStyles =
+                    parseStylesXml(
+                        stylesXml,
+                    );
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Debug styles
             |--------------------------------------------------------------------------
             */
 
             console.log(
-                'SOURCE WORKBOOK:',
-                sourceWorkbook,
+                'EDTS PARSED STYLES:',
+                parsedStyles,
             );
 
             /*
@@ -497,11 +1193,129 @@ export default function ImportExcel() {
                 sourceWorkbook.SheetNames.map(
                     (
                         sheetName,
+                        sheetIndex,
                     ) => {
                         const worksheet =
                             sourceWorkbook
                                 .Sheets[
                                 sheetName
+                            ];
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Raw worksheet XML
+                        |--------------------------------------------------------------------------
+                        */
+
+                        const worksheetPath =
+                            `xl/worksheets/sheet${
+                                sheetIndex + 1
+                            }.xml`;
+
+                        const worksheetFile =
+                            zip.file(
+                                worksheetPath,
+                            );
+
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Style index map
+                        |--------------------------------------------------------------------------
+                        */
+
+                        let styleIndexes =
+                            new Map<
+                                string,
+                                number
+                            >();
+
+                        let rawDimensions =
+                            {
+                                rowHeights:
+                                    new Map<
+                                        number,
+                                        number
+                                    >(),
+
+                                columnWidths:
+                                    new Map<
+                                        number,
+                                        number
+                                    >(),
+                            };
+
+                        if (
+                            worksheetFile
+                        ) {
+                            return worksheetFile
+                                .async(
+                                    'text',
+                                )
+                                .then(
+                                    (
+                                        xml,
+                                    ) => {
+                                        styleIndexes =
+                                            parseWorksheetStyles(
+                                                xml,
+                                            );
+
+                                        rawDimensions =
+                                            parseWorksheetDimensions(
+                                                xml,
+                                            );
+
+                                        return {
+                                            xml,
+                                            styleIndexes,
+                                            rawDimensions,
+                                        };
+                                    },
+                                );
+                        }
+
+                        return Promise.resolve(
+                            {
+                                xml: '',
+                                styleIndexes,
+                                rawDimensions,
+                            },
+                        );
+                    },
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Promise.all because raw XML is async
+            |--------------------------------------------------------------------------
+            */
+
+            const rawSheets =
+                await Promise.all(
+                    sheets,
+                );
+
+            /*
+            |--------------------------------------------------------------------------
+            | Build EDTS sheets
+            |--------------------------------------------------------------------------
+            */
+
+            const edtsSheets: ExcelSheet[] =
+                sourceWorkbook.SheetNames.map(
+                    (
+                        sheetName,
+                        sheetIndex,
+                    ) => {
+                        const worksheet =
+                            sourceWorkbook
+                                .Sheets[
+                                sheetName
+                            ];
+
+                        const raw =
+                            rawSheets[
+                                sheetIndex
                             ];
 
                         /*
@@ -619,30 +1433,87 @@ export default function ImportExcel() {
                                         address
                                     ];
 
-                                    if (address === 'A1') {
-                                        console.log(
-                                            'A1 CELL OBJECT:',
-                                            sourceCell,
-                                        );
-
-                                        console.log(
-                                            'A1 CELL KEYS:',
-                                            Object.keys(
-                                                sourceCell,
-                                            ),
-                                        );
-
-                                        console.log(
-                                            'WORKBOOK CELLXFS:',
-                                            sourceWorkbook.Styles?.CellXf,
-                                        );
-                                    }
-
                                 if (
                                     !sourceCell
                                 ) {
                                     continue;
                                 }
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Base cell
+                                |--------------------------------------------------------------------------
+                                */
+
+                                const cell: ExcelCell =
+                                    {
+                                        value:
+                                            sourceCell.v !==
+                                                undefined &&
+                                            sourceCell.v !==
+                                                null
+                                                ? String(
+                                                      sourceCell.v,
+                                                  )
+                                                : '',
+                                    };
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Formula
+                                |--------------------------------------------------------------------------
+                                */
+
+                                if (
+                                    sourceCell.f
+                                ) {
+                                    cell.formula =
+                                        String(
+                                            sourceCell.f,
+                                        );
+                                }
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Number format
+                                |--------------------------------------------------------------------------
+                                */
+
+                                if (
+                                    typeof sourceCell.z ===
+                                    'string'
+                                ) {
+                                    cell.numberFormat =
+                                        sourceCell.z;
+                                }
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Raw XML style index
+                                |--------------------------------------------------------------------------
+                                */
+
+                                const styleIndex =
+                                    raw.styleIndexes.get(
+                                        address,
+                                    ) ?? 0;
+
+                                const parsedStyle =
+                                    parsedStyles
+                                        .styles[
+                                        styleIndex
+                                    ];
+
+                                /*
+                                |--------------------------------------------------------------------------
+                                | Apply actual Excel style
+                                |--------------------------------------------------------------------------
+                                */
+
+                                applyStyle(
+                                    cell,
+                                    parsedStyle,
+                                );
 
                                 /*
                                 |--------------------------------------------------------------------------
@@ -655,20 +1526,20 @@ export default function ImportExcel() {
                                     'A1'
                                 ) {
                                     console.log(
-                                        'XLSX A1:',
-                                        sourceCell,
+                                        'RAW A1 STYLE INDEX:',
+                                        styleIndex,
                                     );
 
                                     console.log(
-                                        'XLSX A1 STYLE:',
-                                        sourceCell.s,
+                                        'RAW A1 PARSED STYLE:',
+                                        parsedStyle,
+                                    );
+
+                                    console.log(
+                                        'FINAL A1:',
+                                        cell,
                                     );
                                 }
-
-                                const converted =
-                                    convertCell(
-                                        sourceCell,
-                                    );
 
                                 cells[
                                     row -
@@ -677,7 +1548,7 @@ export default function ImportExcel() {
                                     column -
                                         startColumn
                                 ] =
-                                    converted;
+                                    cell;
                             }
                         }
 
@@ -693,52 +1564,55 @@ export default function ImportExcel() {
                                     length:
                                         columnCount,
                                 },
-                                () => 100,
-                            );
-
-                        const columns =
-                            worksheet[
-                                '!cols'
-                            ];
-
-                        if (
-                            Array.isArray(
-                                columns,
-                            )
-                        ) {
-                            columns.forEach(
                                 (
-                                    column,
+                                    _,
                                     index,
                                 ) => {
-                                    if (
-                                        index >=
-                                        columnCount
-                                    ) {
-                                        return;
-                                    }
+                                    const rawWidth =
+                                        raw
+                                            .rawDimensions
+                                            .columnWidths.get(
+                                                index +
+                                                    1,
+                                            );
 
                                     if (
-                                        typeof column.wpx ===
-                                        'number'
+                                        rawWidth
                                     ) {
-                                        columnWidths[
-                                            index
-                                        ] =
-                                            column.wpx;
-                                    } else if (
-                                        typeof column.wch ===
-                                        'number'
-                                    ) {
-                                        columnWidths[
-                                            index
-                                        ] =
-                                            column.wch *
-                                            7;
+                                        return rawWidth;
                                     }
+
+                                    const column =
+                                        worksheet[
+                                            '!cols'
+                                        ]?.[
+                                            index
+                                        ];
+
+                                    if (
+                                        column
+                                    ) {
+                                        if (
+                                            typeof column.wpx ===
+                                            'number'
+                                        ) {
+                                            return column.wpx;
+                                        }
+
+                                        if (
+                                            typeof column.wch ===
+                                            'number'
+                                        ) {
+                                            return (
+                                                column.wch *
+                                                7
+                                            );
+                                        }
+                                    }
+
+                                    return 100;
                                 },
                             );
-                        }
 
                         /*
                         |--------------------------------------------------------------------------
@@ -752,52 +1626,55 @@ export default function ImportExcel() {
                                     length:
                                         rowCount,
                                 },
-                                () => 28,
-                            );
-
-                        const rows =
-                            worksheet[
-                                '!rows'
-                            ];
-
-                        if (
-                            Array.isArray(
-                                rows,
-                            )
-                        ) {
-                            rows.forEach(
                                 (
-                                    row,
+                                    _,
                                     index,
                                 ) => {
-                                    if (
-                                        index >=
-                                        rowCount
-                                    ) {
-                                        return;
-                                    }
+                                    const rawHeight =
+                                        raw
+                                            .rawDimensions
+                                            .rowHeights.get(
+                                                index +
+                                                    1,
+                                            );
 
                                     if (
-                                        typeof row.hpx ===
-                                        'number'
+                                        rawHeight
                                     ) {
-                                        rowHeights[
-                                            index
-                                        ] =
-                                            row.hpx;
-                                    } else if (
-                                        typeof row.hpt ===
-                                        'number'
-                                    ) {
-                                        rowHeights[
-                                            index
-                                        ] =
-                                            row.hpt *
-                                            1.333333;
+                                        return rawHeight;
                                     }
+
+                                    const row =
+                                        worksheet[
+                                            '!rows'
+                                        ]?.[
+                                            index
+                                        ];
+
+                                    if (
+                                        row
+                                    ) {
+                                        if (
+                                            typeof row.hpx ===
+                                            'number'
+                                        ) {
+                                            return row.hpx;
+                                        }
+
+                                        if (
+                                            typeof row.hpt ===
+                                            'number'
+                                        ) {
+                                            return (
+                                                row.hpt *
+                                                1.333333
+                                            );
+                                        }
+                                    }
+
+                                    return 28;
                                 },
                             );
-                        }
 
                         /*
                         |--------------------------------------------------------------------------
@@ -864,12 +1741,7 @@ export default function ImportExcel() {
 
                         /*
                         |--------------------------------------------------------------------------
-                        | xlsx-js-style does not provide
-                        | a simple browser-side image API
-                        | compatible with our EDTS model.
-                        |
-                        | We keep this ready for the
-                        | next image extraction step.
+                        | Return sheet
                         |--------------------------------------------------------------------------
                         */
 
@@ -892,7 +1764,7 @@ export default function ImportExcel() {
 
             /*
             |--------------------------------------------------------------------------
-            | EDTS Workbook
+            | EDTS workbook
             |--------------------------------------------------------------------------
             */
 
@@ -902,14 +1774,15 @@ export default function ImportExcel() {
 
                     type: 'spreadsheet',
 
-                    sheets,
+                    sheets:
+                        edtsSheets,
 
                     activeSheet: 0,
                 };
 
             /*
             |--------------------------------------------------------------------------
-            | Debug EDTS workbook
+            | Debug
             |--------------------------------------------------------------------------
             */
 
@@ -927,7 +1800,7 @@ export default function ImportExcel() {
 
             /*
             |--------------------------------------------------------------------------
-            | Save
+            | Save state
             |--------------------------------------------------------------------------
             */
 
@@ -1251,7 +2124,6 @@ export default function ImportExcel() {
                         </p>
 
                     </div>
-
                 </div>
             </div>
         </AppLayout>
