@@ -1017,52 +1017,78 @@ function emuToPixels(
 function parseImageAnchor(
     anchor: Element,
 ) {
-    const from =
-        getFirstChild(
-            anchor,
-            'from',
+    const find = (
+        name: string,
+    ): Element | null => {
+        return (
+            Array.from(
+                anchor.getElementsByTagName(
+                    '*',
+                ),
+            ).find(
+                (element) =>
+                    element.localName ===
+                    name,
+            ) ?? null
         );
+    };
+
+    const from =
+        find('from');
 
     const to =
-        getFirstChild(
-            anchor,
-            'to',
+        find('to');
+
+    const ext =
+        find('ext');
+
+    const getNumber = (
+        parent: Element | null,
+        name: string,
+    ): number => {
+        if (!parent) {
+            return 0;
+        }
+
+        const element =
+            Array.from(
+                parent.getElementsByTagName(
+                    '*',
+                ),
+            ).find(
+                (child) =>
+                    child.localName ===
+                    name,
+            );
+
+        return Number(
+            element?.textContent ??
+                '0',
         );
+    };
 
     const row =
-        Number(
-            getFirstChild(
-                from,
-                'row',
-            )?.textContent ??
-                '0',
+        getNumber(
+            from,
+            'row',
         );
 
     const column =
-        Number(
-            getFirstChild(
-                from,
-                'col',
-            )?.textContent ??
-                '0',
+        getNumber(
+            from,
+            'col',
         );
 
     const rowOffset =
-        Number(
-            getFirstChild(
-                from,
-                'rowOff',
-            )?.textContent ??
-                '0',
+        getNumber(
+            from,
+            'rowOff',
         );
 
     const colOffset =
-        Number(
-            getFirstChild(
-                from,
-                'colOff',
-            )?.textContent ??
-                '0',
+        getNumber(
+            from,
+            'colOff',
         );
 
     let width = 120;
@@ -1070,15 +1096,9 @@ function parseImageAnchor(
 
     /*
     |--------------------------------------------------------------------------
-    | oneCellAnchor
+    | oneCellAnchor / absoluteAnchor
     |--------------------------------------------------------------------------
     */
-
-    const ext =
-        getFirstChild(
-            anchor,
-            'ext',
-        );
 
     if (ext) {
         const cx =
@@ -1119,42 +1139,28 @@ function parseImageAnchor(
     */
 
     if (to) {
-        const toColumn =
-            Number(
-                getFirstChild(
-                    to,
-                    'col',
-                )?.textContent ??
-                    String(
-                        column,
-                    ),
-            );
-
         const toRow =
-            Number(
-                getFirstChild(
-                    to,
-                    'row',
-                )?.textContent ??
-                    String(row),
+            getNumber(
+                to,
+                'row',
             );
 
-        const toColOffset =
-            Number(
-                getFirstChild(
-                    to,
-                    'colOff',
-                )?.textContent ??
-                    '0',
+        const toColumn =
+            getNumber(
+                to,
+                'col',
             );
 
         const toRowOffset =
-            Number(
-                getFirstChild(
-                    to,
-                    'rowOff',
-                )?.textContent ??
-                    '0',
+            getNumber(
+                to,
+                'rowOff',
+            );
+
+        const toColOffset =
+            getNumber(
+                to,
+                'colOff',
             );
 
         const startX =
@@ -1181,21 +1187,28 @@ function parseImageAnchor(
                 toRowOffset,
             );
 
-        width =
-            Math.max(
-                20,
-                endX - startX,
-            );
+        if (
+            endX >
+            startX
+        ) {
+            width =
+                endX -
+                startX;
+        }
 
-        height =
-            Math.max(
-                20,
-                endY - startY,
-            );
+        if (
+            endY >
+            startY
+        ) {
+            height =
+                endY -
+                startY;
+        }
     }
 
     return {
         row,
+
         column,
 
         offsetX:
@@ -1208,9 +1221,17 @@ function parseImageAnchor(
                 rowOffset,
             ),
 
-        width,
+        width:
+            Math.max(
+                20,
+                width,
+            ),
 
-        height,
+        height:
+            Math.max(
+                20,
+                height,
+            ),
     };
 }
 
@@ -1225,8 +1246,7 @@ async function extractSheetImages(
     sheetIndex: number,
     sheetName: string,
 ): Promise<ExcelImage[]> {
-    const images: ExcelImage[] =
-        [];
+    const images: ExcelImage[] = [];
 
     console.log(
         `========== IMAGE EXTRACTION: ${sheetName} ==========`,
@@ -1234,7 +1254,41 @@ async function extractSheetImages(
 
     /*
     |--------------------------------------------------------------------------
-    | sheetN.xml.rels
+    | Helper: find XML elements by localName
+    |--------------------------------------------------------------------------
+    */
+
+    const findElementsByLocalName = (
+        root: Element | Document,
+        name: string,
+    ): Element[] => {
+        return Array.from(
+            root.getElementsByTagName('*'),
+        ).filter(
+            (element) =>
+                element.localName === name,
+        );
+    };
+
+    const findFirstByLocalName = (
+        root: Element | Document | null,
+        name: string,
+    ): Element | null => {
+        if (!root) {
+            return null;
+        }
+
+        return (
+            findElementsByLocalName(
+                root,
+                name,
+            )[0] ?? null
+        );
+    };
+
+    /*
+    |--------------------------------------------------------------------------
+    | 1. Worksheet relationships
     |--------------------------------------------------------------------------
     */
 
@@ -1269,22 +1323,21 @@ async function extractSheetImages(
     const parser =
         new DOMParser();
 
-    const worksheetRelDocument =
+    const worksheetRelsDocument =
         parser.parseFromString(
             worksheetRelsXml,
             'application/xml',
         );
 
-    const relationships =
-        Array.from(
-            worksheetRelDocument.getElementsByTagName(
-                'Relationship',
-            ),
+    const worksheetRelationships =
+        findElementsByLocalName(
+            worksheetRelsDocument,
+            'Relationship',
         );
 
     console.log(
         'WORKSHEET RELATIONSHIPS:',
-        relationships.map(
+        worksheetRelationships.map(
             (relationship) => ({
                 id:
                     relationship.getAttribute(
@@ -1306,29 +1359,29 @@ async function extractSheetImages(
 
     /*
     |--------------------------------------------------------------------------
-    | Find drawing
+    | 2. Find drawing relationship
     |--------------------------------------------------------------------------
     */
 
     const drawingRelationship =
-        relationships.find(
+        worksheetRelationships.find(
             (relationship) => {
                 const type =
                     relationship.getAttribute(
                         'Type',
                     ) ?? '';
 
-                return (
-                    type.includes(
+                return type
+                    .toLowerCase()
+                    .includes(
                         'drawing',
-                    )
-                );
+                    );
             },
         );
 
     if (!drawingRelationship) {
         console.log(
-            `${sheetName}: DRAWING RELATIONSHIP NOT FOUND`,
+            `${sheetName}: drawing relationship not found`,
         );
 
         return images;
@@ -1350,7 +1403,7 @@ async function extractSheetImages(
 
     /*
     |--------------------------------------------------------------------------
-    | Resolve drawing
+    | 3. Resolve drawing path
     |--------------------------------------------------------------------------
     */
 
@@ -1389,9 +1442,14 @@ async function extractSheetImages(
             'text',
         );
 
+    console.log(
+        'DRAWING XML:',
+        drawingXml,
+    );
+
     /*
     |--------------------------------------------------------------------------
-    | drawingN.xml.rels
+    | 4. Drawing relationships
     |--------------------------------------------------------------------------
     */
 
@@ -1433,17 +1491,16 @@ async function extractSheetImages(
             'text',
         );
 
-    const drawingRelDocument =
+    const drawingRelsDocument =
         parser.parseFromString(
             drawingRelsXml,
             'application/xml',
         );
 
     const drawingRelationships =
-        Array.from(
-            drawingRelDocument.getElementsByTagName(
-                'Relationship',
-            ),
+        findElementsByLocalName(
+            drawingRelsDocument,
+            'Relationship',
         );
 
     console.log(
@@ -1470,7 +1527,7 @@ async function extractSheetImages(
 
     /*
     |--------------------------------------------------------------------------
-    | Parse drawing
+    | 5. Parse drawing XML
     |--------------------------------------------------------------------------
     */
 
@@ -1480,18 +1537,58 @@ async function extractSheetImages(
             'application/xml',
         );
 
+    /*
+    |--------------------------------------------------------------------------
+    | IMPORTANT:
+    |
+    | Don't use:
+    |
+    | getElementsByTagName('twoCellAnchor')
+    |
+    | because Excel uses namespaces.
+    |
+    | Use localName instead.
+    |--------------------------------------------------------------------------
+    */
+
+    const twoCellAnchors =
+        findElementsByLocalName(
+            drawingDocument,
+            'twoCellAnchor',
+        );
+
+    const oneCellAnchors =
+        findElementsByLocalName(
+            drawingDocument,
+            'oneCellAnchor',
+        );
+
+    const absoluteAnchors =
+        findElementsByLocalName(
+            drawingDocument,
+            'absoluteAnchor',
+        );
+
     const anchors = [
-        ...Array.from(
-            drawingDocument.getElementsByTagName(
-                'twoCellAnchor',
-            ),
-        ),
-        ...Array.from(
-            drawingDocument.getElementsByTagName(
-                'oneCellAnchor',
-            ),
-        ),
+        ...twoCellAnchors,
+        ...oneCellAnchors,
+        ...absoluteAnchors,
     ];
+
+    console.log(
+        'TWO CELL ANCHORS:',
+        twoCellAnchors.length,
+    );
+
+    console.log(
+        'ONE CELL ANCHORS:',
+        oneCellAnchors.length,
+    );
+
+    console.log(
+        'ABSOLUTE ANCHORS:',
+        absoluteAnchors.length,
+    );
 
     console.log(
         'DRAWING ANCHORS:',
@@ -1500,7 +1597,7 @@ async function extractSheetImages(
 
     /*
     |--------------------------------------------------------------------------
-    | Extract every image
+    | 6. Process anchors
     |--------------------------------------------------------------------------
     */
 
@@ -1512,38 +1609,69 @@ async function extractSheetImages(
         const anchor =
             anchors[index];
 
+        console.log(
+            `========== ANCHOR ${index} ==========`,
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Find picture
+        |--------------------------------------------------------------------------
+        */
+
         const picture =
-            getFirstChild(
+            findFirstByLocalName(
                 anchor,
                 'pic',
             );
 
         if (!picture) {
+            console.log(
+                'ANCHOR HAS NO PIC',
+            );
+
             continue;
         }
 
+        console.log(
+            'PIC FOUND',
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Find blip
+        |--------------------------------------------------------------------------
+        */
+
         const blip =
-            getFirstChild(
-                getFirstChild(
-                    picture,
-                    'blipFill',
-                ),
+            findFirstByLocalName(
+                picture,
                 'blip',
             );
 
         if (!blip) {
             console.log(
-                'IMAGE BLIP NOT FOUND',
+                'PIC HAS NO BLIP',
             );
 
             continue;
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Get r:embed
+        |--------------------------------------------------------------------------
+        */
 
         const relationshipId =
             blip.getAttribute(
                 'r:embed',
             ) ??
             blip.getAttribute(
+                'embed',
+            ) ??
+            blip.getAttributeNS(
+                'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
                 'embed',
             );
 
@@ -1553,8 +1681,18 @@ async function extractSheetImages(
         );
 
         if (!relationshipId) {
+            console.error(
+                'NO IMAGE RELATIONSHIP ID',
+            );
+
             continue;
         }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Find image relationship
+        |--------------------------------------------------------------------------
+        */
 
         const imageRelationship =
             drawingRelationships.find(
@@ -1592,7 +1730,7 @@ async function extractSheetImages(
 
         /*
         |--------------------------------------------------------------------------
-        | Resolve image
+        | 7. Resolve image path
         |--------------------------------------------------------------------------
         */
 
@@ -1618,12 +1756,124 @@ async function extractSheetImages(
                 imagePath,
             );
 
+            /*
+            |--------------------------------------------------------------------------
+            | Fallback:
+            |
+            | Some XLSX files use a slightly different
+            | relative path.
+            |--------------------------------------------------------------------------
+            */
+
+            const fallbackPath =
+                normalizePath(
+                    `xl/media/${imageTarget
+                        .split('/')
+                        .pop()}`,
+                );
+
+            console.log(
+                'IMAGE FALLBACK PATH:',
+                fallbackPath,
+            );
+
+            const fallbackFile =
+                zip.file(
+                    fallbackPath,
+                );
+
+            if (!fallbackFile) {
+                continue;
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Process fallback
+            |--------------------------------------------------------------------------
+            */
+
+            const extension =
+                fallbackPath
+                    .split('.')
+                    .pop()
+                    ?.toLowerCase();
+
+            let mimeType =
+                'image/png';
+
+            if (
+                extension ===
+                    'jpg' ||
+                extension ===
+                    'jpeg'
+            ) {
+                mimeType =
+                    'image/jpeg';
+            } else if (
+                extension === 'gif'
+            ) {
+                mimeType =
+                    'image/gif';
+            } else if (
+                extension === 'bmp'
+            ) {
+                mimeType =
+                    'image/bmp';
+            } else if (
+                extension === 'svg'
+            ) {
+                mimeType =
+                    'image/svg+xml';
+            }
+
+            const base64 =
+                await fallbackFile.async(
+                    'base64',
+                );
+
+            const position =
+                parseImageAnchor(
+                    anchor,
+                );
+
+            images.push({
+                id:
+                    `${sheetName}-image-${
+                        index + 1
+                    }`,
+
+                src:
+                    `data:${mimeType};base64,${base64}`,
+
+                row:
+                    position.row,
+
+                column:
+                    position.column,
+
+                width:
+                    position.width,
+
+                height:
+                    position.height,
+
+                offsetX:
+                    position.offsetX,
+
+                offsetY:
+                    position.offsetY,
+            });
+
+            console.log(
+                'IMAGE SUCCESSFULLY IMPORTED USING FALLBACK',
+            );
+
             continue;
         }
 
         /*
         |--------------------------------------------------------------------------
-        | MIME
+        | 8. MIME type
         |--------------------------------------------------------------------------
         */
 
@@ -1636,39 +1886,39 @@ async function extractSheetImages(
         let mimeType =
             'image/png';
 
-        if (
-            extension ===
-                'jpg' ||
-            extension ===
-                'jpeg'
+        switch (
+            extension
         ) {
-            mimeType =
-                'image/jpeg';
-        } else if (
-            extension === 'gif'
-        ) {
-            mimeType =
-                'image/gif';
-        } else if (
-            extension === 'bmp'
-        ) {
-            mimeType =
-                'image/bmp';
-        } else if (
-            extension === 'svg'
-        ) {
-            mimeType =
-                'image/svg+xml';
-        } else if (
-            extension === 'webp'
-        ) {
-            mimeType =
-                'image/webp';
+            case 'jpg':
+            case 'jpeg':
+                mimeType =
+                    'image/jpeg';
+                break;
+
+            case 'gif':
+                mimeType =
+                    'image/gif';
+                break;
+
+            case 'bmp':
+                mimeType =
+                    'image/bmp';
+                break;
+
+            case 'svg':
+                mimeType =
+                    'image/svg+xml';
+                break;
+
+            case 'webp':
+                mimeType =
+                    'image/webp';
+                break;
         }
 
         /*
         |--------------------------------------------------------------------------
-        | Base64
+        | 9. Convert image
         |--------------------------------------------------------------------------
         */
 
@@ -1682,7 +1932,7 @@ async function extractSheetImages(
 
         /*
         |--------------------------------------------------------------------------
-        | Position
+        | 10. Position and size
         |--------------------------------------------------------------------------
         */
 
@@ -1740,7 +1990,7 @@ async function extractSheetImages(
                 height:
                     image.height,
 
-                imageBytes:
+                base64Length:
                     base64.length,
             },
         );
