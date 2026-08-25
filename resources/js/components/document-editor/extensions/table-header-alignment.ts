@@ -87,6 +87,32 @@ export const TableHeaderAlignment =
                         };
                     },
                 },
+
+                borderWidth: {
+                    default: null,
+
+                    parseHTML: (element) => {
+                        return (
+                            element.getAttribute(
+                                'data-border-width',
+                            ) || null
+                        );
+                    },
+
+                    renderHTML: (attributes) => {
+                        if (!attributes.borderWidth) {
+                            return {};
+                        }
+
+                        return {
+                            'data-border-width':
+                                attributes.borderWidth,
+
+                            style:
+                                `border-width: ${attributes.borderWidth}px;`,
+                        };
+                    },
+                },
             };
         },
     });

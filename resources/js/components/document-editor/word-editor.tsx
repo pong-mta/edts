@@ -157,6 +157,45 @@ export default function WordEditor({
         }
     };
 
+    const setCellBorderWidth = (
+        value: number | null,
+    ) => {
+        if (!editor) {
+            return;
+        }
+
+        const { state } = editor;
+        const { $from } = state.selection;
+
+        for (
+            let depth = $from.depth;
+            depth > 0;
+            depth--
+        ) {
+            const node = $from.node(depth);
+
+            if (
+                node.type.name === 'tableCell' ||
+                node.type.name === 'tableHeader'
+            ) {
+                const pos = $from.before(depth);
+
+                const tr = state.tr.setNodeMarkup(
+                    pos,
+                    undefined,
+                    {
+                        ...node.attrs,
+                        borderWidth: value,
+                    },
+                );
+
+                editor.view.dispatch(tr);
+
+                return;
+            }
+        }
+    };
+
     const setCellBackgroundColor = (
             value: string | null,
         ) => {
@@ -1208,6 +1247,47 @@ export default function WordEditor({
                                         </button>
                                     </div>
                                 )}
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                                <span className="text-[10px] text-slate-500">
+                                    Border
+                                </span>
+
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="10"
+                                    step="1"
+                                    defaultValue="1"
+                                    onKeyDown={(event) => {
+                                        if (event.key !== 'Enter') {
+                                            return;
+                                        }
+
+                                        event.preventDefault();
+
+                                        const width = Number(
+                                            event.currentTarget.value,
+                                        );
+
+                                        if (
+                                            !Number.isFinite(width) ||
+                                            width < 1 ||
+                                            width > 10
+                                        ) {
+                                            return;
+                                        }
+
+                                        setCellBorderWidth(width);
+                                    }}
+                                    className="h-8 w-[58px] rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700 outline-none focus:border-blue-500"
+                                    title="Border width"
+                                />
+
+                                <span className="text-[10px] text-slate-500">
+                                    px
+                                </span>
                             </div>
 
                             <ToolbarButton
